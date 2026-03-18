@@ -12,7 +12,7 @@ import {
   List,
   Square,
   Mail,
-  RotateCcw
+  AlertTriangle
 } from 'lucide-react';
 
 interface Email {
@@ -23,44 +23,44 @@ interface Email {
   size: string;
   hasAttachment?: boolean;
   isRead: boolean;
-  deletedDate?: string;
+  spamReason?: string;
 }
 
-// 已删除邮件数据（测试数据）
-const deletedEmails: Email[] = [
+// 垃圾邮件数据（测试数据）
+const spamEmails: Email[] = [
   {
     id: 1,
-    from: '京东 JD.com',
-    subject: '您的订单已发货',
-    date: '11 月 20 日',
-    size: '8KB',
+    from: 'unknown@spam.com',
+    subject: '恭喜您获得 100 万元奖金！请立即领取',
+    date: '11 月 22 日',
+    size: '5KB',
     hasAttachment: false,
-    isRead: true,
-    deletedDate: '11 月 25 日'
+    isRead: false,
+    spamReason: '疑似诈骗'
   },
   {
     id: 2,
-    from: '招商银行',
-    subject: '信用卡账单通知',
-    date: '11 月 18 日',
-    size: '15KB',
-    hasAttachment: true,
+    from: 'service@fake-bank.com',
+    subject: '您的银行账户已被冻结，请立即验证',
+    date: '11 月 21 日',
+    size: '8KB',
+    hasAttachment: false,
     isRead: false,
-    deletedDate: '11 月 24 日'
+    spamReason: '钓鱼邮件'
   },
   {
     id: 3,
-    from: 'Apple',
-    subject: '您的 Apple 账户登录异常',
-    date: '11 月 15 日',
-    size: '6KB',
-    hasAttachment: false,
+    from: 'promotion@marketing.com',
+    subject: '【促销】全场 1 折起，限时抢购！',
+    date: '11 月 20 日',
+    size: '12KB',
+    hasAttachment: true,
     isRead: true,
-    deletedDate: '11 月 23 日'
+    spamReason: '广告推广'
   },
 ];
 
-export default function TrashPage() {
+export default function SpamPage() {
   const navigate = useNavigate();
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -78,14 +78,14 @@ export default function TrashPage() {
   const toggleSelectAll = () => {
     setSelectAll(!selectAll);
     if (!selectAll) {
-      setSelectedEmails(deletedEmails.map(e => e.id));
+      setSelectedEmails(spamEmails.map(e => e.id));
     } else {
       setSelectedEmails([]);
     }
   };
 
   // 空状态显示
-  if (deletedEmails.length === 0) {
+  if (spamEmails.length === 0) {
     return (
       <div className="h-full flex bg-white">
         <div className="flex-1 flex flex-col items-center justify-center">
@@ -104,10 +104,10 @@ export default function TrashPage() {
               <div className="absolute bottom-0 left-8 w-3 h-3 bg-pink-300 rounded-full"></div>
               {/* 对话气泡 */}
               <div className="absolute -top-4 right-8 w-12 h-12 bg-blue-50 rounded-full border-2 border-blue-300 flex items-center justify-center">
-                <span className="text-blue-500 text-xs">🗑️</span>
+                <span className="text-blue-500 text-xs">🛡️</span>
               </div>
             </div>
-            <p className="text-slate-500 text-sm mt-4">暂无已删除邮件</p>
+            <p className="text-slate-500 text-sm mt-4">暂无垃圾邮件</p>
           </div>
         </div>
       </div>
@@ -129,7 +129,7 @@ export default function TrashPage() {
                   onChange={toggleSelectAll}
                   className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="text-sm font-medium text-slate-900">已删除</span>
+                <span className="text-sm font-medium text-slate-900">垃圾箱</span>
                 <button className="p-1 hover:bg-slate-100 rounded">
                   <List className="w-4 h-4 text-slate-600" />
                 </button>
@@ -138,8 +138,8 @@ export default function TrashPage() {
 
             <div className="flex items-center gap-1">
               <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
-                <RotateCcw className="w-4 h-4" />
-                恢复
+                <Shield className="w-4 h-4" />
+                不是垃圾邮件
               </button>
               <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
                 <Trash2 className="w-4 h-4" />
@@ -152,7 +152,7 @@ export default function TrashPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-600">共 {deletedEmails.length} 封</span>
+              <span className="text-sm text-slate-600">共 {spamEmails.length} 封</span>
               <ChevronDown className="w-4 h-4 text-slate-400" />
               <button className="p-1.5 hover:bg-slate-100 rounded">
                 <Square className="w-4 h-4 text-slate-600" />
@@ -165,9 +165,9 @@ export default function TrashPage() {
         <div className="flex-1 overflow-y-auto">
           <div>
             <div className="px-4 py-2 bg-slate-50">
-              <span className="text-xs font-medium text-slate-500">更早（{deletedEmails.length}封）</span>
+              <span className="text-xs font-medium text-slate-500">更早（{spamEmails.length}封）</span>
             </div>
-            {deletedEmails.map((email) => (
+            {spamEmails.map((email) => (
               <div
                 key={email.id}
                 onClick={() => handleEmailClick(email.id)}
@@ -184,30 +184,28 @@ export default function TrashPage() {
                   className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
                 
-                {/* 已读/未读状态图标 */}
+                {/* 垃圾邮件图标 */}
                 <div className="w-5 flex-shrink-0">
-                  {email.isRead ? (
-                    <Mail className="w-5 h-5 text-slate-300" />
-                  ) : (
-                    <Mail className="w-5 h-5 text-blue-500 fill-blue-500" />
-                  )}
+                  <AlertTriangle className="w-5 h-5 text-orange-400" />
                 </div>
 
                 <div className="w-40 flex-shrink-0">
-                  <span className={`text-sm truncate block ${
-                    email.isRead ? 'text-slate-600' : 'text-slate-900 font-medium'
-                  }`}>
+                  <span className="text-sm text-slate-600 truncate">
                     {email.from}
                   </span>
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <span className={`text-sm truncate block ${
-                    email.isRead ? 'text-slate-600' : 'text-slate-900 font-medium'
-                  }`}>
+                  <span className="text-sm text-slate-600 truncate">
                     {email.subject}
                   </span>
                 </div>
+
+                {email.spamReason && (
+                  <div className="w-32 flex-shrink-0 text-right">
+                    <span className="text-xs text-orange-600">{email.spamReason}</span>
+                  </div>
+                )}
 
                 {email.hasAttachment && (
                   <Paperclip className="w-4 h-4 text-slate-400 flex-shrink-0" />

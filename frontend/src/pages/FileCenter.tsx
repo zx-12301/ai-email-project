@@ -193,52 +193,7 @@ export default function FileCenter() {
 
   return (
     <div className="h-full flex bg-slate-50">
-      {/* 左侧边栏 - 导航 */}
-      <div className="w-64 bg-white border-r border-slate-200 flex flex-col">
-        <div className="p-4 border-b border-slate-200">
-          <div className="space-y-1">
-            <button className="w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors">
-              收件箱 (5)
-            </button>
-            <button className="w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors">
-              <Star className="w-4 h-4" />
-              星标邮件
-            </button>
-            <button className="w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors">
-              星标联系人邮件
-            </button>
-            <button className="w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2.5 transition-colors">
-              群邮件
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-2">
-          <div className="mb-2 px-2 py-1 text-xs font-medium text-slate-500">已发送</div>
-          <button className="w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-            已发送
-          </button>
-
-          <div className="mt-4 mb-2 px-2 py-1 text-xs font-medium text-slate-500">我的文件夹</div>
-          
-          <div className="mb-2 px-2 py-1 text-xs font-medium text-slate-500">已删除</div>
-
-          <div className="mt-4 mb-2 px-2 py-1 text-xs font-medium text-slate-500">应用</div>
-          <div className="space-y-1">
-            <button className="w-full px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg font-medium">
-              文件中心
-            </button>
-            <button className="w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-              通讯录
-            </button>
-            <button className="w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-              发票助手
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 中间 - 文件分类 */}
+      {/* 文件分类 */}
       <div className="w-64 bg-white border-r border-slate-200 flex flex-col">
         <div className="p-4 border-b border-slate-200">
           <div className="flex items-center gap-2 text-sm font-medium text-slate-900">

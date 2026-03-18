@@ -1,187 +1,317 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { Edit, Trash2, MoreVertical, Paperclip } from 'lucide-react'
-import axios from 'axios'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Star, 
+  Paperclip, 
+  Trash2, 
+  ChevronDown, 
+  MoreVertical,
+  Forward,
+  Shield,
+  CheckCircle,
+  List,
+  Square,
+  Mail,
+  Send,
+  FileText,
+  Archive,
+  X
+} from 'lucide-react';
+import PageToolbar from '../components/PageToolbar';
 
 interface Draft {
-  id: string
-  to: string
-  subject: string
-  preview: string
-  updatedAt: string
-  hasAttachment: boolean
+  id: number;
+  subject: string;
+  content: string;
+  date: string;
+  size: string;
 }
 
+// 草稿数据（测试数据）
+const drafts: Draft[] = [
+  {
+    id: 1,
+    subject: '关于召开产品评审会的通知',
+    content: '各位同事，大家好！定于本周五下午 2 点召开产品评审会...',
+    date: '11 月 26 日',
+    size: '12KB'
+  },
+  {
+    id: 2,
+    subject: '2024 年度工作总结报告',
+    content: '尊敬的领导：现将本部门 2024 年度工作情况总结如下...',
+    date: '11 月 25 日',
+    size: '28KB'
+  },
+  {
+    id: 3,
+    subject: '',
+    content: '李总，您好！关于上次会议讨论的合作事宜...',
+    date: '11 月 24 日',
+    size: '5KB'
+  },
+];
+
 export default function DraftsPage() {
-  const [drafts, setDrafts] = useState<Draft[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedDrafts, setSelectedDrafts] = useState<string[]>([])
+  const navigate = useNavigate();
+  const [selectedDrafts, setSelectedDrafts] = useState<number[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
 
-  useEffect(() => {
-    const fetchDrafts = async () => {
-      try {
-        const response = await axios.get('/api/mail/drafts')
-        setDrafts(response.data.drafts || [])
-      } catch (error) {
-        console.error('获取草稿失败:', error)
-        // 模拟数据（开发时）
-        setDrafts([
-          {
-            id: '1',
-            to: 'wangwu@example.com',
-            subject: '合作方案讨论',
-            preview: '关于上次提到的合作方案，我整理了一份详细的文档...',
-            updatedAt: '2026-03-17 15:30',
-            hasAttachment: true,
-          },
-          {
-            id: '2',
-            to: 'zhaoliu@example.com',
-            subject: '会议邀请',
-            preview: '您好，邀请您参加下周的项目评审会...',
-            updatedAt: '2026-03-16 10:00',
-            hasAttachment: false,
-          },
-        ])
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    fetchDrafts()
-  }, [])
+  const handleDraftClick = (draftId: number) => {
+    navigate(`/compose?draft=${draftId}`);
+  };
 
-  const toggleSelect = (id: string) => {
+  const toggleSelect = (id: number) => {
     setSelectedDrafts(prev =>
       prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]
-    )
-  }
+    );
+  };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('确定要删除这封草稿吗？')) {
-      try {
-        await axios.delete(`/api/mail/draft/${id}`)
-        setDrafts(drafts.filter(d => d.id !== id))
-      } catch (error) {
-        console.error('删除失败:', error)
-        alert('删除失败')
-      }
+  const toggleSelectAll = () => {
+    setSelectAll(!selectAll);
+    if (!selectAll) {
+      setSelectedDrafts(drafts.map(d => d.id));
+    } else {
+      setSelectedDrafts([]);
     }
-  }
+  };
 
-  const handleBatchDelete = () => {
-    if (confirm(`确定要删除选中的 ${selectedDrafts.length} 封草稿吗？`)) {
-      // TODO: 批量删除
-      setSelectedDrafts([])
+  const handleDelete = () => {
+    if (selectedDrafts.length === 0) {
+      alert('请先选择要删除的草稿');
+      return;
     }
-  }
+    const confirmed = window.confirm(`确定要删除选中的 ${selectedDrafts.length} 封草稿吗？`);
+    if (confirmed) {
+      alert(`已删除 ${selectedDrafts.length} 封草稿`);
+      setSelectedDrafts([]);
+      setSelectAll(false);
+    }
+  };
 
-  if (loading) {
-    return <div className="h-full flex items-center justify-center">加载中...</div>
+  const handleForward = () => {
+    if (selectedDrafts.length === 0) {
+      alert('请先选择要转发的草稿');
+      return;
+    }
+    const recipient = window.prompt('请输入收件人邮箱：');
+    if (recipient) {
+      alert(`已转发 ${selectedDrafts.length} 封草稿给 ${recipient}`);
+      setSelectedDrafts([]);
+      setSelectAll(false);
+    }
+  };
+
+  const handleMarkAsRead = () => {
+    if (selectedDrafts.length === 0) {
+      alert('请先选择要标记为已读的草稿');
+      return;
+    }
+    const confirmed = window.confirm(`确定要将选中的 ${selectedDrafts.length} 封草稿标记为已读吗？`);
+    if (confirmed) {
+      alert(`已将 ${selectedDrafts.length} 封草稿标记为已读`);
+      setSelectedDrafts([]);
+      setSelectAll(false);
+    }
+  };
+
+  const handleStar = () => {
+    if (selectedDrafts.length === 0) {
+      alert('请先选择要标记为星标的草稿');
+      return;
+    }
+    alert(`已将 ${selectedDrafts.length} 封草稿标记为星标`);
+    setSelectedDrafts([]);
+    setSelectAll(false);
+  };
+
+  const handleArchive = () => {
+    if (selectedDrafts.length === 0) {
+      alert('请先选择要归档的草稿');
+      return;
+    }
+    alert(`已将 ${selectedDrafts.length} 封草稿归档`);
+    setSelectedDrafts([]);
+    setSelectAll(false);
+  };
+
+  const handleMove = () => {
+    if (selectedDrafts.length === 0) {
+      alert('请先选择要移动的草稿');
+      return;
+    }
+    const folder = window.prompt('请输入要移动到的文件夹名称：');
+    if (folder) {
+      alert(`已将 ${selectedDrafts.length} 封草稿移动到 ${folder}`);
+      setSelectedDrafts([]);
+      setSelectAll(false);
+    }
+  };
+
+  // 空状态显示
+  if (drafts.length === 0) {
+    return (
+      <div className="h-full flex bg-white">
+        <div className="flex-1 flex flex-col items-center justify-center">
+          {/* 空状态插图 */}
+          <div className="flex flex-col items-center">
+            <div className="w-48 h-48 relative mb-4">
+              {/* 电脑图标 */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-32 h-24 bg-blue-100 rounded-lg border-2 border-blue-300 flex items-center justify-center">
+                  <div className="text-4xl">💻</div>
+                </div>
+              </div>
+              {/* 装饰元素 */}
+              <div className="absolute top-0 left-0 w-4 h-4 bg-yellow-300 rounded-full"></div>
+              <div className="absolute top-4 right-4 w-3 h-3 bg-green-300 rounded-full"></div>
+              <div className="absolute bottom-0 left-8 w-3 h-3 bg-pink-300 rounded-full"></div>
+              {/* 对话气泡 */}
+              <div className="absolute -top-4 right-8 w-12 h-12 bg-blue-50 rounded-full border-2 border-blue-300 flex items-center justify-center">
+                <span className="text-blue-500 text-xs">📝</span>
+              </div>
+            </div>
+            <p className="text-slate-500 text-sm mt-4">暂无草稿</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          草稿箱
-        </h1>
-        <div className="flex items-center gap-2">
-          {selectedDrafts.length > 0 && (
-            <button
-              onClick={handleBatchDelete}
-              className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors"
-            >
-              <Trash2 size={16} />
-              删除选中 ({selectedDrafts.length})
-            </button>
-          )}
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            共 {drafts.length} 封草稿
-          </p>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto space-y-2">
-        {drafts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-            <Edit size={48} className="mb-4 opacity-50" />
-            <p>暂无草稿</p>
-            <Link
-              to="/compose"
-              className="mt-4 text-blue-600 hover:text-blue-700 hover:underline"
-            >
-              去写邮件 →
-            </Link>
-          </div>
-        ) : (
-          drafts.map((draft) => (
-            <div
-              key={draft.id}
-              className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
-            >
-              {/* 选择框 */}
-              <input
-                type="checkbox"
-                checked={selectedDrafts.includes(draft.id)}
-                onChange={() => toggleSelect(draft.id)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-
-              {/* 草稿图标 */}
-              <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-                <Edit size={20} className="text-yellow-600 dark:text-yellow-400" />
-              </div>
-
-              {/* 收件人 */}
-              <div className="w-32 text-sm font-medium text-gray-900 dark:text-white truncate">
-                {draft.to || '无收件人'}
-              </div>
-
-              {/* 邮件内容 */}
-              <Link to={`/compose?draft=${draft.id}`} className="flex-1 min-w-0 hover:underline">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900 dark:text-white truncate">
-                    {draft.subject || '(无主题)'}
-                  </span>
-                  {draft.hasAttachment && (
-                    <Paperclip size={14} className="text-gray-400 flex-shrink-0" />
-                  )}
-                </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                  {draft.preview}
-                </p>
-              </Link>
-
-              {/* 更新时间 */}
-              <div className="text-xs text-gray-500 dark:text-gray-400 w-24 text-right">
-                {new Date(draft.updatedAt).toLocaleString('zh-CN')}
-              </div>
-
-              {/* 操作按钮 */}
-              <div className="flex items-center gap-1">
-                <Link
-                  to={`/compose?draft=${draft.id}`}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-blue-600 dark:text-blue-400"
-                  title="继续编辑"
-                >
-                  <Edit size={16} />
-                </Link>
-                <button
-                  onClick={() => handleDelete(draft.id)}
-                  className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-red-600 dark:text-red-400"
-                  title="删除"
-                >
-                  <Trash2 size={16} />
-                </button>
-                <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                  <MoreVertical size={16} className="text-gray-500" />
+    <div className="h-full flex bg-white">
+      {/* 主内容区 */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* 顶部工具栏 */}
+        <div className="border-b border-slate-200 p-4 bg-white">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectAll}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-slate-900">草稿箱</span>
+                <button className="p-1 hover:bg-slate-100 rounded">
+                  <List className="w-4 h-4 text-slate-600" />
                 </button>
               </div>
             </div>
-          ))
-        )}
+
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={handleDelete}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                删除
+              </button>
+              <button 
+                onClick={handleForward}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
+                <Forward className="w-4 h-4" />
+                转发
+              </button>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
+                <Shield className="w-4 h-4" />
+                垃圾邮件
+              </button>
+              <button 
+                onClick={handleMarkAsRead}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
+                <CheckCircle className="w-4 h-4" />
+                全部已读
+              </button>
+              <button 
+                onClick={handleStar}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
+                <Star className="w-4 h-4" />
+                标记为
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={handleMove}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
+                <ChevronDown className="w-4 h-4" />
+                移动到
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-600">共 {drafts.length} 封</span>
+              <ChevronDown className="w-4 h-4 text-slate-400" />
+              <button className="p-1.5 hover:bg-slate-100 rounded">
+                <Square className="w-4 h-4 text-slate-600" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 草稿列表 */}
+        <div className="flex-1 overflow-y-auto">
+          <div>
+            <div className="px-4 py-2 bg-slate-50">
+              <span className="text-xs font-medium text-slate-500">更早（{drafts.length}封）</span>
+            </div>
+            {drafts.map((draft) => (
+              <div
+                key={draft.id}
+                onClick={() => handleDraftClick(draft.id)}
+                className="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedDrafts.includes(draft.id)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    toggleSelect(draft.id);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                
+                {/* 草稿图标 */}
+                <div className="w-5 flex-shrink-0">
+                  <FileText className="w-5 h-5 text-slate-300" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-slate-600 truncate">
+                    {draft.subject || '无主题'}
+                  </span>
+                </div>
+
+                <div className="w-32 flex-shrink-0 text-right">
+                  <span className="text-xs text-slate-500">{draft.date}</span>
+                </div>
+
+                <div className="w-12 flex-shrink-0 text-right">
+                  <span className="text-xs text-slate-400">{draft.size}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 分页 */}
+        <div className="border-t border-slate-200 px-4 py-3 flex items-center justify-end">
+          <div className="flex items-center gap-2">
+            <button className="px-3 py-1.5 text-sm border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>
+              上一页
+            </button>
+            <button className="px-3 py-1.5 text-sm border border-slate-200 rounded hover:bg-slate-50 transition-colors">
+              下一页
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-  )
+  );
 }

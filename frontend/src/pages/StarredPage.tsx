@@ -11,8 +11,7 @@ import {
   CheckCircle,
   List,
   Square,
-  Mail,
-  RotateCcw
+  Mail
 } from 'lucide-react';
 
 interface Email {
@@ -23,44 +22,59 @@ interface Email {
   size: string;
   hasAttachment?: boolean;
   isRead: boolean;
-  deletedDate?: string;
+  isStarred: boolean;
+  avatar?: string;
 }
 
-// 已删除邮件数据（测试数据）
-const deletedEmails: Email[] = [
+// 标星邮件数据
+const starredEmails: Email[] = [
   {
     id: 1,
-    from: '京东 JD.com',
-    subject: '您的订单已发货',
-    date: '11 月 20 日',
-    size: '8KB',
+    from: 'Dell Notifications',
+    subject: 'XPS 13 9360 有新的更新',
+    date: '11 月 22 日',
+    size: '28KB',
     hasAttachment: false,
-    isRead: true,
-    deletedDate: '11 月 25 日'
+    isRead: false,
+    isStarred: true,
+    avatar: 'D'
   },
   {
     id: 2,
-    from: '招商银行',
-    subject: '信用卡账单通知',
-    date: '11 月 18 日',
-    size: '15KB',
-    hasAttachment: true,
-    isRead: false,
-    deletedDate: '11 月 24 日'
+    from: 'Apple Developer',
+    subject: 'The Apple Developer Agreement has been updated.',
+    date: '11 月 01 日',
+    size: '7KB',
+    hasAttachment: false,
+    isRead: true,
+    isStarred: true,
+    avatar: 'A'
   },
   {
     id: 3,
-    from: 'Apple',
-    subject: '您的 Apple 账户登录异常',
-    date: '11 月 15 日',
-    size: '6KB',
-    hasAttachment: false,
+    from: '张三',
+    subject: '项目进度汇报 - 请查阅',
+    date: '10 月 20 日',
+    size: '25KB',
+    hasAttachment: true,
     isRead: true,
-    deletedDate: '11 月 23 日'
+    isStarred: true,
+    avatar: '张'
+  },
+  {
+    id: 4,
+    from: '李四',
+    subject: '会议邀请 - 下周产品评审会',
+    date: '10 月 18 日',
+    size: '05KB',
+    hasAttachment: false,
+    isRead: false,
+    isStarred: true,
+    avatar: '李'
   },
 ];
 
-export default function TrashPage() {
+export default function StarredPage() {
   const navigate = useNavigate();
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -78,41 +92,11 @@ export default function TrashPage() {
   const toggleSelectAll = () => {
     setSelectAll(!selectAll);
     if (!selectAll) {
-      setSelectedEmails(deletedEmails.map(e => e.id));
+      setSelectedEmails(starredEmails.map(e => e.id));
     } else {
       setSelectedEmails([]);
     }
   };
-
-  // 空状态显示
-  if (deletedEmails.length === 0) {
-    return (
-      <div className="h-full flex bg-white">
-        <div className="flex-1 flex flex-col items-center justify-center">
-          {/* 空状态插图 */}
-          <div className="flex flex-col items-center">
-            <div className="w-48 h-48 relative mb-4">
-              {/* 电脑图标 */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-32 h-24 bg-blue-100 rounded-lg border-2 border-blue-300 flex items-center justify-center">
-                  <div className="text-4xl">💻</div>
-                </div>
-              </div>
-              {/* 装饰元素 */}
-              <div className="absolute top-0 left-0 w-4 h-4 bg-yellow-300 rounded-full"></div>
-              <div className="absolute top-4 right-4 w-3 h-3 bg-green-300 rounded-full"></div>
-              <div className="absolute bottom-0 left-8 w-3 h-3 bg-pink-300 rounded-full"></div>
-              {/* 对话气泡 */}
-              <div className="absolute -top-4 right-8 w-12 h-12 bg-blue-50 rounded-full border-2 border-blue-300 flex items-center justify-center">
-                <span className="text-blue-500 text-xs">🗑️</span>
-              </div>
-            </div>
-            <p className="text-slate-500 text-sm mt-4">暂无已删除邮件</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-full flex bg-white">
@@ -120,6 +104,7 @@ export default function TrashPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 顶部工具栏 */}
         <div className="border-b border-slate-200 p-4 bg-white">
+          {/* 第一行：标星邮件 + 操作按钮 */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
@@ -129,7 +114,7 @@ export default function TrashPage() {
                   onChange={toggleSelectAll}
                   className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="text-sm font-medium text-slate-900">已删除</span>
+                <span className="text-sm font-medium text-slate-900">标星邮件</span>
                 <button className="p-1 hover:bg-slate-100 rounded">
                   <List className="w-4 h-4 text-slate-600" />
                 </button>
@@ -138,21 +123,35 @@ export default function TrashPage() {
 
             <div className="flex items-center gap-1">
               <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
-                <RotateCcw className="w-4 h-4" />
-                恢复
+                <Trash2 className="w-4 h-4" />
+                删除
               </button>
               <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
-                <Trash2 className="w-4 h-4" />
-                永久删除
+                <Forward className="w-4 h-4" />
+                转发
+              </button>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
+                <Shield className="w-4 h-4" />
+                垃圾邮件
               </button>
               <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
                 <CheckCircle className="w-4 h-4" />
                 全部已读
               </button>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
+                <Star className="w-4 h-4" />
+                标记为
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
+                <ChevronDown className="w-4 h-4" />
+                移动到
+                <ChevronDown className="w-4 h-4" />
+              </button>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-600">共 {deletedEmails.length} 封</span>
+              <span className="text-sm text-slate-600">共 {starredEmails.length} 封</span>
               <ChevronDown className="w-4 h-4 text-slate-400" />
               <button className="p-1.5 hover:bg-slate-100 rounded">
                 <Square className="w-4 h-4 text-slate-600" />
@@ -163,15 +162,18 @@ export default function TrashPage() {
 
         {/* 邮件列表 */}
         <div className="flex-1 overflow-y-auto">
+          {/* 更早邮件 */}
           <div>
             <div className="px-4 py-2 bg-slate-50">
-              <span className="text-xs font-medium text-slate-500">更早（{deletedEmails.length}封）</span>
+              <span className="text-xs font-medium text-slate-500">更早（{starredEmails.length}封）</span>
             </div>
-            {deletedEmails.map((email) => (
+            {starredEmails.map((email) => (
               <div
                 key={email.id}
                 onClick={() => handleEmailClick(email.id)}
-                className="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100"
+                className={`px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100 ${
+                  !email.isRead ? 'bg-blue-50/50' : ''
+                }`}
               >
                 <input
                   type="checkbox"
@@ -200,6 +202,16 @@ export default function TrashPage() {
                     {email.from}
                   </span>
                 </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log('Toggle star:', email.id);
+                  }}
+                  className="p-1 hover:bg-slate-100 rounded"
+                >
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                </button>
 
                 <div className="flex-1 min-w-0">
                   <span className={`text-sm truncate block ${

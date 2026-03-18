@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { 
+import {
   ArrowLeft, Star, Trash2, Forward, MoreVertical, Mail,
-  Clock, CheckCircle2, X, ChevronDown, Paperclip, Reply,
-  User, Phone, Building, Shield, Send, Sparkles,
-  ThumbsUp, MessageSquare
+  CheckCircle2, X, ChevronDown, Paperclip, Reply,
+  Phone, Building, Send, Sparkles,
+  ThumbsUp, MessageSquare, Download
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 interface Email {
   id: number;
@@ -81,12 +81,57 @@ const aiSuggestions = [
 
 export default function MailDetailPage() {
   const navigate = useNavigate();
+  const { mailId } = useParams<{ mailId: string }>();
   const [isReplying, setIsReplying] = useState(false);
   const [showContactCard, setShowContactCard] = useState(true);
   const [replyContent, setReplyContent] = useState('');
   const [isStarred, setIsStarred] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
   const [showAIPanel, setShowAIPanel] = useState(false);
+
+  // 根据邮件 ID 获取不同的邮件内容
+  const getEmailById = (id: string): Email => {
+    const emailId = parseInt(id, 10);
+
+    if (emailId === 2) {
+      return {
+        ...mockEmail,
+        id: 2,
+        from: '95555',
+        fromEmail: '95555@cmbchina.com',
+        subject: '招商银行零售贷款电子对账单',
+        content: '尊敬的客户：\n\n您尾号 8888 的账户本月贷款已发放，详情如下...\n\n招商银行',
+        date: '2026 年 11 月 23 日 09:30',
+        attachments: [{ name: '对账单.pdf', size: '1.8MB', type: 'pdf' }]
+      };
+    }
+    if (emailId === 3) {
+      return {
+        ...mockEmail,
+        id: 3,
+        from: '三星电子',
+        fromEmail: 'samsung@samsung.com',
+        subject: '【三星 Galaxy】瞩目时刻，即将展开',
+        content: '尊敬的三星会员：\n\n全新 Galaxy 系列即将发布，诚邀您参加线上发布会...\n\n三星电子',
+        date: '2026 年 11 月 23 日 14:00'
+      };
+    }
+    if (emailId === 4) {
+      return {
+        ...mockEmail,
+        id: 4,
+        from: 'Dell Notifications',
+        fromEmail: 'notifications@dell.com',
+        subject: 'XPS 13 9360 有新的更新',
+        content: '尊敬的 Dell 用户：\n\n您的设备有新的驱动程序可用，请及时更新...\n\nDell 技术支持',
+        date: '2026 年 11 月 22 日 16:45'
+      };
+    }
+
+    return mockEmail;
+  };
+
+  const currentEmail = getEmailById(mailId || '1');
 
   const handleUseSuggestion = (index: number) => {
     setSelectedSuggestion(index);
@@ -119,7 +164,10 @@ export default function MailDetailPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded transition-colors">
+              <button 
+                onClick={() => navigate('/reply')}
+                className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded transition-colors"
+              >
                 <Reply className="w-4 h-4 text-slate-600" />
                 <span className="text-sm text-slate-600">回复</span>
               </button>
@@ -146,7 +194,7 @@ export default function MailDetailPage() {
               {/* 邮件主题 */}
               <div className="px-6 py-4 border-b border-slate-200">
                 <div className="flex items-center justify-between">
-                  <h1 className="text-xl font-medium text-slate-900">{mockEmail.subject}</h1>
+                  <h1 className="text-xl font-medium text-slate-900">{currentEmail.subject}</h1>
                   <button 
                     onClick={() => setIsStarred(!isStarred)}
                     className="p-2 hover:bg-slate-100 rounded transition-colors"
@@ -161,22 +209,22 @@ export default function MailDetailPage() {
                 <div className="flex items-start gap-4">
                   {/* 发件人头像 */}
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-lg font-medium flex-shrink-0">
-                    {mockEmail.from.charAt(0)}
+                    {currentEmail.from.charAt(0)}
                   </div>
 
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <div className="font-medium text-slate-900 text-base">{mockEmail.from}</div>
-                        <div className="text-sm text-slate-500">{mockEmail.fromEmail}</div>
+                        <div className="font-medium text-slate-900 text-base">{currentEmail.from}</div>
+                        <div className="text-sm text-slate-500">{currentEmail.fromEmail}</div>
                       </div>
-                      <div className="text-sm text-slate-500">{mockEmail.date}</div>
+                      <div className="text-sm text-slate-500">{currentEmail.date}</div>
                     </div>
 
                     <div className="text-sm text-slate-600 space-y-1">
                       <div>
                         <span className="text-slate-500">收件人：</span>
-                        {mockEmail.to.join(', ')}
+                        {currentEmail.to.join(', ')}
                       </div>
                     </div>
 
@@ -195,19 +243,19 @@ export default function MailDetailPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-medium">
-                        {mockEmail.from.charAt(0)}
+                        {currentEmail.from.charAt(0)}
                       </div>
                       <div>
-                        <div className="font-medium text-slate-900">{mockEmail.from}</div>
-                        <div className="text-sm text-slate-500 mt-0.5">{mockEmail.fromEmail}</div>
+                        <div className="font-medium text-slate-900">{currentEmail.from}</div>
+                        <div className="text-sm text-slate-500 mt-0.5">{currentEmail.fromEmail}</div>
                         <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
-                          {mockEmail.fromPhone && (
+                          {currentEmail.fromPhone && (
                             <div className="flex items-center gap-1">
                               <Phone className="w-3.5 h-3.5" />
                               <span>{mockEmail.fromPhone}</span>
                             </div>
                           )}
-                          {mockEmail.fromCompany && (
+                          {currentEmail.fromCompany && (
                             <div className="flex items-center gap-1">
                               <Building className="w-3.5 h-3.5" />
                               <span>{mockEmail.fromCompany}</span>
@@ -230,19 +278,19 @@ export default function MailDetailPage() {
               <div className="px-6 py-4">
                 <div className="prose prose-slate max-w-none">
                   <div className="whitespace-pre-wrap text-slate-700 leading-relaxed text-sm">
-                    {mockEmail.content}
+                    {currentEmail.content}
                   </div>
                 </div>
               </div>
 
               {/* 附件列表 */}
-              {mockEmail.hasAttachment && mockEmail.attachments && (
+              {currentEmail.hasAttachment && currentEmail.attachments && (
                 <div className="mx-6 mb-4">
                   <div className="text-sm font-medium text-slate-700 mb-3">
-                    附件（{mockEmail.attachments.length}）
+                    附件（{currentEmail.attachments.length}）
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {mockEmail.attachments.map((attachment, index) => (
+                    {currentEmail.attachments.map((attachment, index) => (
                       <div
                         key={index}
                         className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -268,11 +316,11 @@ export default function MailDetailPage() {
                 <div className="space-y-2 text-slate-600">
                   <div>
                     <span className="text-slate-500">发件人：</span>
-                    {mockEmail.from} &lt;{mockEmail.fromEmail}&gt;
+                    {currentEmail.from} &lt;{currentEmail.fromEmail}&gt;
                   </div>
                   <div>
                     <span className="text-slate-500">发件时间：</span>
-                    {mockEmail.date}
+                    {currentEmail.date}
                   </div>
                   <div>
                     <span className="text-slate-500">收件人：</span>
@@ -341,13 +389,16 @@ export default function MailDetailPage() {
               <div className="bg-white rounded-lg border border-slate-200 p-6">
                 <div className="flex items-center gap-3">
                   <button 
-                    onClick={() => setIsReplying(true)}
+                    onClick={() => navigate('/reply')}
                     className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
                   >
                     <Mail className="w-4 h-4" />
                     发送
                   </button>
-                  <button className="px-6 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition-colors">
+                  <button 
+                    onClick={() => navigate('/reply')}
+                    className="px-6 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition-colors"
+                  >
                     回复
                   </button>
                   <button className="px-6 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition-colors">
