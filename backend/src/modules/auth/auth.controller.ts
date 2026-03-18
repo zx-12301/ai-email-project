@@ -1,15 +1,17 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Request, Get, Patch } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
-import { IsString, IsMobilePhone, Length } from 'class-validator'
+import { IsString, IsMobilePhone, Length, IsEmail, IsOptional, MinLength } from 'class-validator'
 import { AuthService } from './auth.service'
 
+// 发送验证码 DTO
 export class SendCodeDto {
   @IsString()
   @IsMobilePhone('zh-CN')
   phone: string
 }
 
-export class LoginDto {
+// 验证码登录 DTO
+export class LoginWithCodeDto {
   @IsString()
   @IsMobilePhone('zh-CN')
   phone: string
@@ -17,6 +19,60 @@ export class LoginDto {
   @IsString()
   @Length(6, 6)
   code: string
+}
+
+// 注册 DTO
+export class RegisterDto {
+  @IsString()
+  @IsMobilePhone('zh-CN')
+  phone: string
+
+  @IsString()
+  @MinLength(6)
+  password: string
+
+  @IsOptional()
+  @IsEmail()
+  email?: string
+
+  @IsOptional()
+  @IsString()
+  name?: string
+}
+
+// 密码登录 DTO
+export class LoginWithPasswordDto {
+  @IsString()
+  @IsMobilePhone('zh-CN')
+  phone: string
+
+  @IsString()
+  password: string
+}
+
+// 修改密码 DTO
+export class ChangePasswordDto {
+  @IsString()
+  oldPassword: string
+
+  @IsString()
+  @MinLength(6)
+  newPassword: string
+}
+
+// 重置密码 DTO
+export class ResetPasswordDto {
+  @IsString()
+  @IsMobilePhone('zh-CN')
+  phone: string
+
+  @IsString()
+  @Length(6, 6)
+  code: string
+
+  @IsString()
+  @MinLength(6)
+  newPassword: string
 }
 
 @Controller('auth')
@@ -33,12 +89,30 @@ export class AuthController {
   }
 
   /**
-   * 登录（验证码登录）
+   * 验证码登录/注册
    */
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.validateUserAndLogin(loginDto.phone, loginDto.code)
+  async loginWithCode(@Body() loginDto: LoginWithCodeDto) {
+    return this.authService.loginWithCode(loginDto.phone, loginDto.code)
+  }
+
+  /**
+   * 用户注册（密码方式）
+   */
+  @Post('register')
+  @HttpCode(HttpStatus.OK)
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto)
+  }
+
+  /**
+   * 密码登录
+   */
+  @Post('login/password')
+  @HttpCode(HttpStatus.OK)
+  async loginWithPassword(@Body() loginDto: LoginWithPasswordDto) {
+    return this.authService.loginWithPassword(loginDto.phone, loginDto.password)
   }
 
   /**
@@ -57,6 +131,32 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   async updateProfile(@Request() req, @Body() data: Partial<any>) {
     return this.authService.updateProfile(req.user.sub, data)
+  }
+
+  /**
+   * 修改密码
+   */
+  @Post('change-password')
+  @UseGuards(AuthGuard('jwt'))
+  async changePassword(@Request() req, @Body() changePasswordDto: ChangePasswordDto) {
+    return this.authService.changePassword(
+      req.user.sub,
+      changePasswordDto.oldPassword,
+      changePasswordDto.newPassword,
+    )
+  }
+
+  /**
+   * 重置密码（通过验证码）
+   */
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(
+      resetPasswordDto.phone,
+      resetPasswordDto.code,
+      resetPasswordDto.newPassword,
+    )
   }
 
   /**
