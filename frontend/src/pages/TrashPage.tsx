@@ -12,7 +12,9 @@ import {
   List,
   Square,
   Mail,
-  RotateCcw
+  RotateCcw,
+  Archive,
+  X
 } from 'lucide-react';
 
 interface Email {
@@ -84,6 +86,101 @@ export default function TrashPage() {
     }
   };
 
+  const handleDelete = () => {
+    if (selectedEmails.length === 0) {
+      alert('请先选择要永久删除的邮件');
+      return;
+    }
+    const confirmed = window.confirm(`确定要永久删除选中的 ${selectedEmails.length} 封邮件吗？此操作不可恢复！`);
+    if (confirmed) {
+      alert(`已永久删除 ${selectedEmails.length} 封邮件`);
+      setSelectedEmails([]);
+      setSelectAll(false);
+    }
+  };
+
+  const handleRestore = () => {
+    if (selectedEmails.length === 0) {
+      alert('请先选择要恢复的邮件');
+      return;
+    }
+    alert(`已将 ${selectedEmails.length} 封邮件恢复到收件箱`);
+    setSelectedEmails([]);
+    setSelectAll(false);
+  };
+
+  const handleForward = () => {
+    if (selectedEmails.length === 0) {
+      alert('请先选择要转发的邮件');
+      return;
+    }
+    const recipient = window.prompt('请输入收件人邮箱：');
+    if (recipient) {
+      alert(`已转发 ${selectedEmails.length} 封邮件给 ${recipient}`);
+      setSelectedEmails([]);
+      setSelectAll(false);
+    }
+  };
+
+  const handleSpam = () => {
+    if (selectedEmails.length === 0) {
+      alert('请先选择要标记为垃圾邮件的邮件');
+      return;
+    }
+    const confirmed = window.confirm(`确定要将选中的 ${selectedEmails.length} 封邮件标记为垃圾邮件吗？`);
+    if (confirmed) {
+      alert(`已将 ${selectedEmails.length} 封邮件标记为垃圾邮件`);
+      setSelectedEmails([]);
+      setSelectAll(false);
+    }
+  };
+
+  const handleMarkAsRead = () => {
+    if (selectedEmails.length === 0) {
+      alert('请先选择要标记为已读的邮件');
+      return;
+    }
+    const confirmed = window.confirm(`确定要将选中的 ${selectedEmails.length} 封邮件标记为已读吗？`);
+    if (confirmed) {
+      alert(`已将 ${selectedEmails.length} 封邮件标记为已读`);
+      setSelectedEmails([]);
+      setSelectAll(false);
+    }
+  };
+
+  const handleStar = () => {
+    if (selectedEmails.length === 0) {
+      alert('请先选择要标记为星标的邮件');
+      return;
+    }
+    alert(`已将 ${selectedEmails.length} 封邮件标记为星标`);
+    setSelectedEmails([]);
+    setSelectAll(false);
+  };
+
+  const handleArchive = () => {
+    if (selectedEmails.length === 0) {
+      alert('请先选择要归档的邮件');
+      return;
+    }
+    alert(`已将 ${selectedEmails.length} 封邮件归档`);
+    setSelectedEmails([]);
+    setSelectAll(false);
+  };
+
+  const handleMove = () => {
+    if (selectedEmails.length === 0) {
+      alert('请先选择要移动的邮件');
+      return;
+    }
+    const folder = window.prompt('请输入要移动到的文件夹名称：');
+    if (folder) {
+      alert(`已将 ${selectedEmails.length} 封邮件移动到 ${folder}`);
+      setSelectedEmails([]);
+      setSelectAll(false);
+    }
+  };
+
   // 空状态显示
   if (deletedEmails.length === 0) {
     return (
@@ -137,17 +234,56 @@ export default function TrashPage() {
             </div>
 
             <div className="flex items-center gap-1">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
+              <button 
+                onClick={handleRestore}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
                 <RotateCcw className="w-4 h-4" />
                 恢复
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
+              <button 
+                onClick={handleDelete}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
                 <Trash2 className="w-4 h-4" />
                 永久删除
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors">
+              <button 
+                onClick={handleForward}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
+                <Forward className="w-4 h-4" />
+                转发
+              </button>
+              <button 
+                onClick={handleSpam}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
+                <Shield className="w-4 h-4" />
+                垃圾邮件
+              </button>
+              <button 
+                onClick={handleMarkAsRead}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
                 <CheckCircle className="w-4 h-4" />
                 全部已读
+              </button>
+              <button 
+                onClick={handleStar}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
+                <Star className="w-4 h-4" />
+                标记为
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={handleMove}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 rounded transition-colors"
+              >
+                <ChevronDown className="w-4 h-4" />
+                移动到
+                <ChevronDown className="w-4 h-4" />
               </button>
             </div>
 
