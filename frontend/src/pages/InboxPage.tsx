@@ -19,6 +19,7 @@ import {
   Folder
 } from 'lucide-react';
 import PageToolbar from '../components/PageToolbar';
+import { mailApi } from '../api/mail';
 
 interface Email {
   id: number;

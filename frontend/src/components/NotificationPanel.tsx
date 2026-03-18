@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bell, X, Check, CheckCheck, Trash2, Settings } from 'lucide-react';
+import { notificationApi } from '../api/mail';
 
 interface Notification {
   id: number;
@@ -16,64 +17,60 @@ interface NotificationPanelProps {
 }
 
 export default function NotificationPanel({ onClose }: NotificationPanelProps) {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: 1,
-      type: 'email',
-      title: '新邮件通知',
-      message: '星耀科技发送了一封新邮件：协同办公软件推荐',
-      time: '2 分钟前',
-      isRead: false,
-      avatar: '星'
-    },
-    {
-      id: 2,
-      type: 'meeting',
-      title: '会议提醒',
-      message: '10 分钟后开始产品评审会（第一会议室）',
-      time: '10 分钟前',
-      isRead: false,
-      avatar: '会'
-    },
-    {
-      id: 3,
-      type: 'system',
-      title: '系统通知',
-      message: '您的存储空间使用率已达 80%，请及时清理',
-      time: '1 小时前',
-      isRead: true,
-      avatar: '系'
-    },
-    {
-      id: 4,
-      type: 'email',
-      title: '新邮件通知',
-      message: '张三发送了一封新邮件：项目进度汇报',
-      time: '2 小时前',
-      isRead: true,
-      avatar: '张'
-    },
-    {
-      id: 5,
-      type: 'email',
-      title: '新邮件通知',
-      message: '李四发送了一封新邮件：会议邀请 - 下周产品评审会',
-      time: '昨天',
-      isRead: true,
-      avatar: '李'
-    }
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 加载通知列表
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const result = await notificationApi.getList();
+        setNotifications(result.notifications || []);
+      } catch (error) {
+        console.error('加载通知失败:', error);
+        // 使用模拟数据作为降级方案
+        setNotifications([
+          {
+            id: 1,
+            type: 'email',
+            title: '新邮件通知',
+            message: '星耀科技发送了一封新邮件',
+            time: '2 分钟前',
+            isRead: false,
+            avatar: '星'
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadNotifications();
+  }, []);
 
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
-  const handleMarkAsRead = (id: number) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, isRead: true } : n
-    ));
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      await notificationApi.markAsRead(id);
+      setNotifications(notifications.map(n => 
+        n.id === id ? { ...n, isRead: true } : n
+      ));
+    } catch (error) {
+      console.error('标记已读失败:', error);
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+  const handleMarkAllAsRead = async () => {
+    try {
+      const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
+      for (const id of unreadIds) {
+        await notificationApi.markAsRead(id);
+      }
+      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    } catch (error) {
+      console.error('全部标记失败:', error);
+    }
   };
 
   const handleDelete = (id: number) => {
