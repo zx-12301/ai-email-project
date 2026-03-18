@@ -361,6 +361,13 @@ export class AuthService {
   }
 
   /**
+   * 根据 ID 获取用户
+   */
+  async getUserById(userId: string): Promise<User | null> {
+    return await this.userRepository.findOne({ where: { id: userId } })
+  }
+
+  /**
    * 获取当前用户信息
    */
   async getCurrentUser(userId: string): Promise<User | null> {
