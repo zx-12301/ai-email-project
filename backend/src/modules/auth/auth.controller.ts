@@ -130,7 +130,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
   async getProfile(@Request() req) {
-    return this.authService.getCurrentUser(req.user.sub)
+    return this.authService.getCurrentUser(req.user.userId)
   }
 
   /**
@@ -139,7 +139,7 @@ export class AuthController {
   @Patch('profile')
   @UseGuards(AuthGuard('jwt'))
   async updateProfile(@Request() req, @Body() data: Partial<any>) {
-    return this.authService.updateProfile(req.user.sub, data)
+    return this.authService.updateProfile(req.user.userId, data)
   }
 
   /**
