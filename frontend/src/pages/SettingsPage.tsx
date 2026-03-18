@@ -92,6 +92,7 @@ export default function SettingsPage() {
 
   return (
     <div className="h-screen flex bg-slate-50">
+      {/* 左侧菜单栏 */}
       <div className="w-64 bg-white border-r border-slate-200">
         <div className="p-4 border-b border-slate-200">
           <h2 className="text-lg font-semibold text-slate-900">设置</h2>
@@ -158,8 +159,9 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* 右侧内容区 */}
       <div className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           {activeTab === 'profile' && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200">
               <div className="p-6 border-b border-slate-200">
@@ -167,12 +169,13 @@ export default function SettingsPage() {
                 <p className="text-sm text-slate-500 mt-1">管理您的个人信息和联系方式</p>
               </div>
               
-              <div className="p-6 space-y-6">
-                <div className="flex items-center gap-6">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-medium">
+              <div className="p-8 space-y-8">
+                {/* 头像区域 */}
+                <div className="flex items-start gap-6">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-4xl font-medium flex-shrink-0">
                     {userInfo.avatar || (userInfo.name ? userInfo.name.charAt(0) : '用')}
                   </div>
-                  <div>
+                  <div className="pt-2">
                     <button
                       onClick={handleAvatarChange}
                       className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
@@ -184,69 +187,86 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                {/* 表单区域 */}
+                <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                  {/* 姓名 */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">姓名</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      姓名
+                    </label>
                     <input
                       type="text"
                       value={userInfo.name}
                       onChange={(e) => setUserInfo({ ...userInfo, name: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="请输入姓名"
                     />
                   </div>
 
+                  {/* 邮箱 */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">邮箱</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      邮箱
+                    </label>
                     <input
                       type="email"
                       value={userInfo.email}
                       onChange={(e) => setUserInfo({ ...userInfo, email: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="请输入邮箱"
                     />
                   </div>
 
+                  {/* 手机 */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">手机</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      手机
+                    </label>
                     <input
                       type="text"
                       value={userInfo.phone}
                       onChange={(e) => setUserInfo({ ...userInfo, phone: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="请输入手机号"
                     />
                   </div>
 
+                  {/* 部门 */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">部门</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      部门
+                    </label>
                     <input
                       type="text"
                       value={userInfo.department}
                       onChange={(e) => setUserInfo({ ...userInfo, department: e.target.value })}
-                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="请输入部门"
                     />
                   </div>
                 </div>
 
+                {/* 邮件签名 */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">邮件签名</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    邮件签名
+                  </label>
                   <textarea
                     value={userInfo.signature}
                     onChange={(e) => setUserInfo({ ...userInfo, signature: e.target.value })}
-                    rows={4}
-                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    rows={6}
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     placeholder="设置您的默认邮件签名"
                   />
                   <p className="text-xs text-slate-500 mt-2">签名将在发送邮件时自动附加到邮件末尾</p>
                 </div>
 
+                {/* 保存按钮 */}
                 <div className="flex justify-end pt-6 border-t border-slate-200">
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                    className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
                   >
                     <Save className="w-4 h-4" />
                     {saving ? '保存中...' : '保存设置'}
@@ -262,7 +282,7 @@ export default function SettingsPage() {
                 <h3 className="text-lg font-semibold text-slate-900">通知设置</h3>
                 <p className="text-sm text-slate-500 mt-1">管理您的邮件通知偏好</p>
               </div>
-              <div className="p-6">
+              <div className="p-8">
                 <p className="text-slate-600">通知设置功能开发中...</p>
               </div>
             </div>
@@ -274,7 +294,7 @@ export default function SettingsPage() {
                 <h3 className="text-lg font-semibold text-slate-900">安全隐私</h3>
                 <p className="text-sm text-slate-500 mt-1">管理您的账号安全设置</p>
               </div>
-              <div className="p-6">
+              <div className="p-8">
                 <p className="text-slate-600">安全隐私功能开发中...</p>
               </div>
             </div>
@@ -286,7 +306,7 @@ export default function SettingsPage() {
                 <h3 className="text-lg font-semibold text-slate-900">外观显示</h3>
                 <p className="text-sm text-slate-500 mt-1">自定义界面显示偏好</p>
               </div>
-              <div className="p-6">
+              <div className="p-8">
                 <p className="text-slate-600">外观显示功能开发中...</p>
               </div>
             </div>

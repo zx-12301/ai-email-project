@@ -401,10 +401,13 @@ export default function MailLayout() {
                   onClick={() => setShowUserDropdown(!showUserDropdown)}
                   className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-100 rounded-full cursor-pointer hover:bg-slate-200 transition-colors"
                 >
-                  <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-medium">
-                    董
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-medium">
+                    {currentUser?.name?.charAt(0) || currentUser?.email?.charAt(0).toUpperCase() || '用'}
                   </div>
-                  <span className="text-xs text-slate-700 font-medium">董欣 dongx@Spt.com</span>
+                  <div className="flex flex-col items-start">
+                    <span className="text-xs text-slate-700 font-medium">{currentUser?.name || '用户'}</span>
+                    <span className="text-[10px] text-slate-500">{currentUser?.email || currentUser?.phone}</span>
+                  </div>
                   <ChevronDown size={12} className="text-slate-400" />
                 </button>
 
@@ -412,12 +415,17 @@ export default function MailLayout() {
                 {showUserDropdown && (
                   <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-xl z-10">
                     {/* 用户信息 */}
-                    <div className="p-4 border-b border-slate-100 text-center">
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-medium mx-auto mb-2">
-                        董
+                    <div className="p-6 border-b border-slate-100 text-center">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-medium mx-auto mb-3">
+                        {currentUser?.name?.charAt(0) || currentUser?.email?.charAt(0).toUpperCase() || '用'}
                       </div>
-                      <h3 className="text-base font-medium text-slate-900">国际科技 - 董欣</h3>
-                      <p className="text-sm text-slate-500 mt-1">dongx@Spt.com</p>
+                      <h3 className="text-base font-medium text-slate-900">
+                        {currentUser?.company ? `${currentUser.company} - ` : ''}{currentUser?.name || '用户'}
+                      </h3>
+                      <p className="text-sm text-slate-500 mt-1">{currentUser?.email || currentUser?.phone}</p>
+                      {currentUser?.department && (
+                        <p className="text-xs text-slate-400 mt-1">{currentUser.department}</p>
+                      )}
                     </div>
 
                     {/* 存储空间 */}
