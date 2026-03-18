@@ -193,6 +193,14 @@ export class MailController {
   }
 
   /**
+   * 生成测试数据
+   */
+  @Post('generate-test-data')
+  async generateTestData(@Request() req) {
+    return this.mailService.generateTestData(req.user.userId)
+  }
+
+  /**
    * AI 智能写信并发送
    */
   @Post('send-with-ai')

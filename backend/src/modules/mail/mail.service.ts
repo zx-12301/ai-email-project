@@ -362,4 +362,70 @@ export class MailService {
       isDraft: false,
     })
   }
+
+  /**
+   * 生成测试数据
+   */
+  async generateTestData(userId: string) {
+    const testEmails = [
+      {
+        from: 'star@sunshine.com',
+        fromName: '星耀科技',
+        subject: '协同办公软件推荐',
+        content: '尊敬的客户：\n\n您好！感谢您对我们产品的关注。我们很高兴向您推荐最新的协同办公软件解决方案。\n\n此致\n敬礼\n\n星耀科技团队',
+        isRead: false,
+        isStarred: true,
+      },
+      {
+        from: '95555@cmbchina.com',
+        fromName: '招商银行',
+        subject: '信用卡账单通知',
+        content: '尊敬的客户：\n\n您尾号 8888 的信用卡本期账单已出。\n\n账单金额：¥10,000.00\n请按时还款。\n\n招商银行',
+        isRead: false,
+        isStarred: false,
+      },
+      {
+        from: 'zhangsan@example.com',
+        fromName: '张三',
+        subject: '项目进度汇报 - 请查阅',
+        content: '李总：\n\n现将本周项目进展情况汇报如下：\n\n一、已完成工作\n1. 前端页面开发完成 80%\n2. 后端接口开发完成 90%\n\n汇报人：张三',
+        isRead: true,
+        isStarred: true,
+      },
+      {
+        from: 'lisi@example.com',
+        fromName: '李四',
+        subject: '会议邀请 - 下周产品评审会',
+        content: '各位同事：\n\n定于下周三下午 2 点召开产品评审会。\n\n会议地点：第一会议室\n\n请准时参加。\n\n李四',
+        isRead: false,
+        isStarred: false,
+      },
+      {
+        from: 'wangwu@example.com',
+        fromName: '王五',
+        subject: '关于系统架构调整的说明',
+        content: '各位技术同事：\n\n为了提升系统性能，我们计划对现有系统架构进行调整。\n\n详细方案请查看附件。\n\n王五',
+        isRead: true,
+        isStarred: false,
+      },
+    ];
+
+    let mailCount = 0;
+    for (const emailData of testEmails) {
+      const mail = this.mailRepository.create({
+        userId,
+        folder: 'inbox',
+        ...emailData,
+        to: ['user@example.com'],
+        status: 'delivered',
+      });
+      await this.mailRepository.save(mail);
+      mailCount++;
+    }
+
+    return {
+      success: true,
+      message: `已生成 ${mailCount} 封测试邮件`,
+    };
+  }
 }
