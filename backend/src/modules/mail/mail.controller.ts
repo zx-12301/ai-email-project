@@ -1,15 +1,40 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
+import { IsString, IsArray, IsOptional, IsBoolean } from 'class-validator'
 import { MailService } from './mail.service'
 
 class SendMailDto {
+  @IsArray()
+  @IsString({ each: true })
   to: string[]
+
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
   cc?: string[]
+
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
   bcc?: string[]
+
+  @IsString()
   subject: string
+
+  @IsString()
   content: string
+
+  @IsString()
+  @IsOptional()
   contentHtml?: string
+
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
   attachments?: string[]
+
+  @IsBoolean()
+  @IsOptional()
   isDraft?: boolean
 }
 

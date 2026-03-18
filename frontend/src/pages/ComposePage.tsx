@@ -46,6 +46,10 @@ export default function ComposePage() {
         const user = await authApi.getCurrentUser()
         setCurrentUser(user)
         
+        // 加载联系人列表
+        const contactsData = await mailApi.getContacts()
+        setContacts(contactsData || [])
+        
         // 检查是否有草稿 ID
         const params = new URLSearchParams(location.search)
         const draftId = params.get('draft')

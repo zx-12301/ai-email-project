@@ -406,6 +406,7 @@ export default function MailLayout() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-700 font-medium">{currentUser?.name || '用户'}</span>
+                    <span className="text-xs text-slate-500">{currentUser?.phone}</span>
                     <ChevronDown size={12} className="text-slate-400" />
                   </div>
                 </button>

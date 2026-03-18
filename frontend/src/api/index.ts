@@ -296,6 +296,13 @@ export const mailApi = {
     );
     return handleResponse(response);
   },
+
+  async getContacts() {
+    const response = await fetch(`${API_BASE_URL}/contact`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
 };
 
 /**
