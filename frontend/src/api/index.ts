@@ -142,6 +142,24 @@ export const authApi = {
   },
 
   /**
+   * 更新用户资料
+   */
+  async updateProfile(data: {
+    name?: string;
+    avatar?: string;
+    signature?: string;
+    department?: string;
+    company?: string;
+  }) {
+    const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      method: 'PATCH',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  /**
    * 修改密码
    */
   async changePassword(oldPassword: string, newPassword: string) {

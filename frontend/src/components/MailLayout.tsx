@@ -447,12 +447,16 @@ export default function MailLayout() {
                       <button className="p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors text-left">
                         <Monitor className="w-5 h-5 text-slate-600 mb-2" />
                         <div className="text-xs text-slate-500">登录情况</div>
-                        <div className="text-xs text-slate-400 mt-1">2027.11.27 中国 北京</div>
+                        <div className="text-xs text-slate-700 font-medium mt-1">
+                          {new Date().toLocaleDateString('zh-CN')} 中国
+                        </div>
                       </button>
                       <button className="p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors text-left">
                         <Smartphone className="w-5 h-5 text-slate-600 mb-2" />
-                        <div className="text-xs text-slate-500">手机号码邮箱</div>
-                        <div className="text-xs text-slate-400 mt-1">199****0787@Spt.com</div>
+                        <div className="text-xs text-slate-500">手机号</div>
+                        <div className="text-xs text-slate-700 font-medium mt-1">
+                          {currentUser?.phone || '暂无'}
+                        </div>
                       </button>
                       <button className="p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors text-left">
                         <HelpCircle className="w-5 h-5 text-slate-600 mb-2" />
