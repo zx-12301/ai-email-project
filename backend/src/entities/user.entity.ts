@@ -23,6 +23,12 @@ export class User {
   @Column({ nullable: true })
   signature: string
 
+  @Column({ nullable: true })
+  department: string
+
+  @Column({ nullable: true })
+  company: string
+
   @Column({ default: false })
   emailVerified: boolean
 

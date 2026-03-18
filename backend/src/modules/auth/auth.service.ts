@@ -373,14 +373,20 @@ export class AuthService {
   async getCurrentUser(userId: string): Promise<User | null> {
     return await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'phone', 'email', 'name', 'avatar', 'signature', 'emailVerified', 'createdAt'],
+      select: ['id', 'phone', 'email', 'name', 'avatar', 'signature', 'department', 'company', 'emailVerified', 'createdAt'],
     })
   }
 
   /**
    * 更新用户资料
    */
-  async updateProfile(userId: string, data: Partial<User>): Promise<User> {
+  async updateProfile(userId: string, data: {
+    name?: string
+    avatar?: string
+    signature?: string
+    department?: string
+    company?: string
+  }): Promise<User> {
     await this.userRepository.update(userId, data)
     return this.userRepository.findOne({ where: { id: userId } })
   }
