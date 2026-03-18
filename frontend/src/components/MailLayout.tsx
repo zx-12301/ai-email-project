@@ -49,7 +49,7 @@ export default function MailLayout() {
       const token = localStorage.getItem('token')
       
       if (!token) {
-        alert('登录已过期，请重新登录！')
+        // 没有 token，直接跳转登录页（不弹窗）
         navigate('/login')
         return
       }
@@ -59,9 +59,12 @@ export default function MailLayout() {
         setCurrentUser(user)
       } catch (error: any) {
         console.error('验证登录状态失败:', error)
+        // 只在明确是 401 错误时才弹窗提示
+        if (error.message === '登录过期，请重新登录') {
+          alert('登录已过期，请重新登录！')
+        }
         // token 无效或过期
         localStorage.removeItem('token')
-        alert('登录已过期，请重新登录！')
         navigate('/login')
       } finally {
         setLoading(false)

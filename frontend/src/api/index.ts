@@ -39,13 +39,6 @@ const handleResponse = async (response: Response) => {
     // 如果是 401 错误，说明 token 过期或无效
     if (response.status === 401) {
       removeToken();
-      
-      // 如果当前不在登录页，跳转到登录页
-      if (!window.location.pathname.startsWith('/login')) {
-        alert('登录过期，请重新登录！');
-        window.location.href = '/login';
-      }
-      
       throw new Error('登录过期，请重新登录');
     }
     
@@ -68,6 +61,21 @@ export const authApi = {
       body: JSON.stringify({ phone }),
     });
     return handleResponse(response);
+  },
+
+  /**
+   * 演示用户登录
+   */
+  async loginAsDemo() {
+    const response = await fetch(`${API_BASE_URL}/auth/login/demo`, {
+      method: 'POST',
+      headers: getHeaders(false),
+    });
+    const data = await handleResponse(response);
+    if (data.access_token) {
+      setToken(data.access_token);
+    }
+    return data;
   },
 
   /**
