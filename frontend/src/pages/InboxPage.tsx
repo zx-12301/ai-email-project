@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Star, 
-  Paperclip, 
-  Trash2, 
-  Archive, 
-  ChevronDown, 
+import {
+  Star,
+  Paperclip,
+  Trash2,
+  Archive,
+  ChevronDown,
   MoreVertical,
   RefreshCw,
   Tag,
@@ -29,6 +29,7 @@ interface Email {
   isRead: boolean;
   isStarred: boolean;
   avatar?: string;
+  avatarColor?: string;
 }
 
 const mockEmails: Email[] = [
@@ -41,7 +42,8 @@ const mockEmails: Email[] = [
     hasAttachment: true,
     isRead: false,
     isStarred: true,
-    avatar: '星'
+    avatar: '星',
+    avatarColor: 'bg-orange-100 text-orange-600'
   },
   {
     id: 2,
@@ -52,7 +54,8 @@ const mockEmails: Email[] = [
     hasAttachment: true,
     isRead: false,
     isStarred: false,
-    avatar: '9'
+    avatar: '9',
+    avatarColor: 'bg-amber-100 text-amber-600'
   },
   {
     id: 3,
@@ -63,7 +66,8 @@ const mockEmails: Email[] = [
     hasAttachment: true,
     isRead: false,
     isStarred: false,
-    avatar: '三'
+    avatar: '三',
+    avatarColor: 'bg-blue-100 text-blue-600'
   },
   {
     id: 4,
@@ -74,7 +78,8 @@ const mockEmails: Email[] = [
     hasAttachment: false,
     isRead: false,
     isStarred: true,
-    avatar: 'D'
+    avatar: 'D',
+    avatarColor: 'bg-[#0077C8]/10 text-[#0077C8]'
   },
   {
     id: 5,
@@ -85,7 +90,8 @@ const mockEmails: Email[] = [
     hasAttachment: false,
     isRead: false,
     isStarred: false,
-    avatar: '京'
+    avatar: '京',
+    avatarColor: 'bg-[#E1251B]/10 text-[#E1251B]'
   },
   {
     id: 6,
@@ -96,7 +102,8 @@ const mockEmails: Email[] = [
     hasAttachment: false,
     isRead: false,
     isStarred: false,
-    avatar: 'A'
+    avatar: 'A',
+    avatarColor: 'bg-gray-200 text-gray-600'
   },
 ];
 
@@ -109,7 +116,8 @@ const earlierEmails: Email[] = Array(15).fill(null).map((_, i) => ({
   hasAttachment: i % 5 === 0,
   isRead: true,
   isStarred: i === 3,
-  avatar: '1'
+  avatar: '1',
+  avatarColor: 'bg-slate-100 text-slate-600'
 }));
 
 export default function InboxPage() {
@@ -135,6 +143,72 @@ export default function InboxPage() {
       setSelectedEmails([]);
     }
   };
+
+  // 渲染邮件行组件
+  const renderEmailRow = (email: Email) => (
+    <div
+      key={email.id}
+      onClick={() => handleEmailClick(email.id)}
+      className={`px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100 ${
+        !email.isRead ? 'bg-blue-50/50' : ''
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={selectedEmails.includes(email.id)}
+        onChange={(e) => {
+          e.stopPropagation();
+          toggleSelect(email.id);
+        }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+      />
+
+      <div className={`w-9 h-9 rounded flex items-center justify-center text-xs font-medium flex-shrink-0 ${email.avatarColor || 'bg-slate-100 text-slate-600'}`}>
+        {email.avatar}
+      </div>
+
+      <div className="w-36 flex-shrink-0">
+        <span className={`text-xs truncate block ${
+          email.isRead ? 'text-slate-600' : 'text-slate-900 font-medium'
+        }`}>
+          {email.from}
+        </span>
+      </div>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          console.log('Toggle star:', email.id);
+        }}
+        className="p-1 hover:bg-slate-100 rounded flex-shrink-0"
+      >
+        <Star className={`w-4 h-4 ${
+          email.isStarred ? 'text-amber-400 fill-amber-400' : 'text-slate-300 hover:text-amber-400'
+        }`} />
+      </button>
+
+      <div className="flex-1 min-w-0">
+        <span className={`text-sm truncate block ${
+          email.isRead ? 'text-slate-600' : 'text-slate-900 font-medium'
+        }`}>
+          {email.subject}
+        </span>
+      </div>
+
+      {email.hasAttachment && (
+        <Paperclip className="w-4 h-4 text-slate-400 flex-shrink-0" />
+      )}
+
+      <div className="w-16 flex-shrink-0 text-right">
+        <span className="text-xs text-slate-500">{email.date}</span>
+      </div>
+
+      <div className="w-14 flex-shrink-0 text-right">
+        <span className="text-xs text-slate-400">{email.size}</span>
+      </div>
+    </div>
+  );
 
   return (
     <div className="h-full flex bg-white">
