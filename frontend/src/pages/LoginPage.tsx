@@ -1,23 +1,132 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { Mail, Lock, MessageSquare, Eye, EyeOff, User, Phone, Key } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Mail, Lock, MessageSquare, Eye, EyeOff, User, Phone, Key, CheckCircle, AlertCircle } from 'lucide-react';
+import { authApi } from '../api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [loginMethod, setLoginMethod] = useState<'wechat' | 'phone' | 'password'>('wechat');
+  const [loginMethod, setLoginMethod] = useState<'wechat' | 'phone' | 'password'>('phone');
   const [rememberMe, setRememberMe] = useState(true);
+  
+  // 手机号登录状态
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
+  const [countdown, setCountdown] = useState(0);
+  const [codeSent, setCodeSent] = useState(false);
+  
+  // 密码登录状态
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  
+  // 通用状态
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const handleLogin = () => {
+  // 检查是否已登录
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate('/inbox');
+    }
+  }, [navigate]);
+
+  // 倒计时
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  // 获取验证码
+  const handleGetCode = async () => {
+    if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+      setError('请输入正确的手机号');
+      return;
+    }
+
+    try {
+      setError('');
+      setLoading(true);
+      await authApi.sendCode(phone);
+      setCodeSent(true);
+      setCountdown(60);
+      setSuccess('验证码已发送，请查看控制台');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message || '发送失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 手机号登录
+  const handlePhoneLogin = async () => {
+    if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+      setError('请输入正确的手机号');
+      return;
+    }
+
+    if (!code || code.length !== 6) {
+      setError('请输入 6 位验证码');
+      return;
+    }
+
+    try {
+      setError('');
+      setLoading(true);
+      const result = await authApi.loginWithCode(phone, code);
+      console.log('登录成功:', result);
+      navigate('/inbox');
+    } catch (err: any) {
+      setError(err.message || '登录失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 密码登录
+  const handlePasswordLogin = async () => {
+    if (!account || !/^1[3-9]\d{9}$/.test(account)) {
+      setError('请输入正确的手机号');
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      setError('密码长度至少 6 位');
+      return;
+    }
+
+    try {
+      setError('');
+      setLoading(true);
+      const result = await authApi.loginWithPassword(account, password);
+      console.log('登录成功:', result);
+      navigate('/inbox');
+    } catch (err: any) {
+      setError(err.message || '登录失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 企业微信登录（模拟）
+  const handleWechatLogin = () => {
+    // 模拟登录成功
+    localStorage.setItem('token', 'mock_token_' + Date.now());
     navigate('/inbox');
   };
 
-  const handleGetCode = () => {
-    console.log('Get verification code:', phone);
+  // 切换到注册页面
+  const handleGoToRegister = () => {
+    navigate('/register');
+  };
+
+  // 切换到忘记密码页面
+  const handleGoToForgotPassword = () => {
+    navigate('/forgot-password');
   };
 
   return (
@@ -70,6 +179,22 @@ export default function LoginPage() {
             {loginMethod === 'password' && '账号密码登录'}
           </h2>
 
+          {/* 错误提示 */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-600">
+              <AlertCircle className="w-4 h-4" />
+              {error}
+            </div>
+          )}
+
+          {/* 成功提示 */}
+          {success && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-sm text-green-600">
+              <CheckCircle className="w-4 h-4" />
+              {success}
+            </div>
+          )}
+
           {/* 企业微信登录 */}
           {loginMethod === 'wechat' && (
             <div className="flex flex-col items-center">
@@ -94,9 +219,13 @@ export default function LoginPage() {
                 </label>
               </div>
 
-              <p className="text-sm text-slate-500">
-                使用企业微信扫码，快速安全登录
-              </p>
+              <button
+                onClick={handleWechatLogin}
+                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <MessageSquare className="w-5 h-5" />
+                模拟登录
+              </button>
             </div>
           )}
 
@@ -104,167 +233,197 @@ export default function LoginPage() {
           {loginMethod === 'phone' && (
             <div className="space-y-4">
               {/* 手机号输入 */}
-              <div className="flex border border-slate-200 rounded-lg overflow-hidden">
-                <div className="px-3 py-2.5 bg-slate-50 border-r border-slate-200 text-sm text-slate-600 flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
-                  + 86
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  手机号
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="请输入手机号"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    maxLength={11}
+                  />
                 </div>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="输入手机号码"
-                  className="flex-1 px-3 py-2.5 border-0 focus:outline-none focus:ring-0 text-sm"
-                />
               </div>
 
               {/* 验证码输入 */}
-              <div className="relative">
-                <div className="flex border border-slate-200 rounded-lg overflow-hidden">
-                  <div className="flex-1 px-3 py-2.5 border-0 focus:outline-none focus:ring-0 text-sm flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-slate-400" />
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  验证码
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                       type="text"
                       value={code}
                       onChange={(e) => setCode(e.target.value)}
-                      placeholder="输入验证码"
+                      placeholder="请输入验证码"
+                      className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       maxLength={6}
-                      className="w-full border-0 focus:outline-none focus:ring-0 text-sm"
                     />
                   </div>
-                  <button 
+                  <button
                     onClick={handleGetCode}
-                    className="px-4 py-2.5 text-sm text-blue-500 hover:text-blue-600 hover:bg-blue-50 font-medium whitespace-nowrap"
+                    disabled={countdown > 0 || !phone}
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium rounded-lg transition-colors whitespace-nowrap"
                   >
-                    获取验证码
+                    {countdown > 0 ? `${countdown}秒后重发` : '获取验证码'}
                   </button>
                 </div>
               </div>
 
               {/* 登录按钮 */}
               <button
-                onClick={handleLogin}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2.5 rounded-lg font-medium transition-colors"
+                onClick={handlePhoneLogin}
+                disabled={loading}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
               >
-                登录
+                {loading ? '登录中...' : '登录'}
               </button>
 
               {/* 其他选项 */}
               <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    id="remember-phone"
                     className="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500"
                   />
-                  <label htmlFor="remember-phone" className="text-slate-600 cursor-pointer">
-                    30 天内免登录
-                  </label>
-                </div>
+                  <span className="text-slate-600">记住我</span>
+                </label>
+                <button
+                  onClick={handleGoToRegister}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  注册账号
+                </button>
               </div>
             </div>
           )}
 
-          {/* 账号密码登录 */}
+          {/* 密码登录 */}
           {loginMethod === 'password' && (
             <div className="space-y-4">
               {/* 账号输入 */}
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <User className="w-4 h-4" />
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  手机号
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={account}
+                    onChange={(e) => setAccount(e.target.value)}
+                    placeholder="请输入手机号"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    maxLength={11}
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={account}
-                  onChange={(e) => setAccount(e.target.value)}
-                  placeholder="邮箱账号/管理员账号"
-                  className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                />
               </div>
 
               {/* 密码输入 */}
-              <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <Key className="w-4 h-4" />
-                </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="输入邮箱密码"
-                  className="w-full pl-10 pr-10 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                />
-                <button
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-
-              {/* 记住密码和忘记密码 */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  密码
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    id="remember-password"
-                    className="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="请输入密码"
+                    className="w-full pl-10 pr-12 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                  <label htmlFor="remember-password" className="text-sm text-slate-600 cursor-pointer">
-                    30 天内免登录
-                  </label>
+                  <button
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
                 </div>
-                <button className="text-sm text-blue-500 hover:text-blue-600 font-medium">
-                  忘记密码？
-                </button>
               </div>
 
               {/* 登录按钮 */}
               <button
-                onClick={handleLogin}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2.5 rounded-lg font-medium transition-colors"
+                onClick={handlePasswordLogin}
+                disabled={loading}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
               >
-                登录
+                {loading ? '登录中...' : '登录'}
               </button>
+
+              {/* 其他选项 */}
+              <div className="flex items-center justify-between text-sm">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500"
+                  />
+                  <span className="text-slate-600">记住我</span>
+                </label>
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleGoToForgotPassword}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    忘记密码？
+                  </button>
+                  <button
+                    onClick={handleGoToRegister}
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    注册账号
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
           {/* 登录方式切换 */}
-          <div className="flex justify-center gap-6 mt-8 pt-6 border-t border-slate-200">
-            <button
-              onClick={() => setLoginMethod('wechat')}
-              className={`text-sm ${
-                loginMethod === 'wechat' 
-                  ? 'text-blue-500 font-medium' 
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              企业微信
-            </button>
-            <button
-              onClick={() => setLoginMethod('phone')}
-              className={`text-sm ${
-                loginMethod === 'phone' 
-                  ? 'text-blue-500 font-medium' 
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              手机号
-            </button>
-            <button
-              onClick={() => setLoginMethod('password')}
-              className={`text-sm ${
-                loginMethod === 'password' 
-                  ? 'text-blue-500 font-medium' 
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              账号密码
-            </button>
+          <div className="mt-8 pt-8 border-t border-slate-200">
+            <div className="text-center text-sm text-slate-600 mb-4">其他登录方式</div>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => setLoginMethod('wechat')}
+                className={`p-3 rounded-lg transition-colors ${
+                  loginMethod === 'wechat'
+                    ? 'bg-green-100 text-green-600'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <MessageSquare className="w-6 h-6" />
+              </button>
+              <button
+                onClick={() => setLoginMethod('phone')}
+                className={`p-3 rounded-lg transition-colors ${
+                  loginMethod === 'phone'
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Phone className="w-6 h-6" />
+              </button>
+              <button
+                onClick={() => setLoginMethod('password')}
+                className={`p-3 rounded-lg transition-colors ${
+                  loginMethod === 'password'
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Lock className="w-6 h-6" />
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import InboxPage from './pages/InboxPage'
 import ComposePage from './pages/ComposePage'
 import ReplyPage from './pages/ReplyPage'
@@ -27,8 +29,10 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 登录页 */}
+        {/* 认证页面 */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         
         {/* 邮件主布局 */}
         <Route path="/" element={<MailLayout />}>
