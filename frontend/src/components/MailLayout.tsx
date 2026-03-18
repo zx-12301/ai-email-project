@@ -48,21 +48,40 @@ export default function MailLayout() {
     const checkAuth = async () => {
       const token = localStorage.getItem('token')
       
+      console.log('🔐 验证登录状态:', {
+        hasToken: !!token,
+        tokenLength: token?.length,
+        tokenPreview: token ? token.substring(0, 50) + '...' : 'none'
+      })
+      
       if (!token) {
         // 没有 token，直接跳转登录页（不弹窗）
+        console.log('⚠️ 没有 token，跳转登录页')
         navigate('/login')
         return
       }
       
       try {
+        // 添加小延迟，确保 token 已完全生效
+        await new Promise(resolve => setTimeout(resolve, 200))
+        
+        console.log('📡 请求用户信息...')
         const user = await authApi.getCurrentUser()
+        console.log('✅ 用户信息获取成功:', user)
         setCurrentUser(user)
       } catch (error: any) {
-        console.error('验证登录状态失败:', error)
+        console.error('❌ 验证登录状态失败:', error)
+        console.error('错误详情:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        })
+        
         // 只在明确是 401 错误时才弹窗提示
         if (error.message === '登录过期，请重新登录') {
           alert('登录已过期，请重新登录！')
         }
+        
         // token 无效或过期
         localStorage.removeItem('token')
         navigate('/login')
