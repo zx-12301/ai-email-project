@@ -35,6 +35,20 @@ const getHeaders = (includeToken = true) => {
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: '请求失败' }));
+    
+    // 如果是 401 错误，说明 token 过期或无效
+    if (response.status === 401) {
+      removeToken();
+      
+      // 如果当前不在登录页，跳转到登录页
+      if (!window.location.pathname.startsWith('/login')) {
+        alert('登录过期，请重新登录！');
+        window.location.href = '/login';
+      }
+      
+      throw new Error('登录过期，请重新登录');
+    }
+    
     throw new Error(error.message || '请求失败');
   }
   return response.json();

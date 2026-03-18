@@ -50,11 +50,24 @@ export default function LoginPage() {
     try {
       setError('');
       setLoading(true);
-      await authApi.sendCode(phone);
+      const result = await authApi.sendCode(phone);
+      
+      // 显示验证码在前端控制台
+      console.log('📱 验证码登录提示:');
+      console.log('   手机号:', phone);
+      console.log('   验证码:', result.code);
+      console.log('   有效期：5 分钟');
+      console.log('   是否新用户:', result.isNewUser ? '是（将自动注册）' : '否');
+      
       setCodeSent(true);
       setCountdown(60);
-      setSuccess('验证码已发送，请查看控制台');
-      setTimeout(() => setSuccess(''), 3000);
+      
+      if (result.isNewUser) {
+        setSuccess(`验证码已发送（新用户将自动注册），验证码：${result.code}`);
+      } else {
+        setSuccess(`验证码已发送，验证码：${result.code}`);
+      }
+      setTimeout(() => setSuccess(''), 10000);
     } catch (err: any) {
       setError(err.message || '发送失败');
     } finally {
@@ -112,11 +125,22 @@ export default function LoginPage() {
     }
   };
 
-  // 企业微信登录（模拟）
-  const handleWechatLogin = () => {
-    // 模拟登录成功
-    localStorage.setItem('token', 'mock_token_' + Date.now());
-    navigate('/inbox');
+  // 企业微信登录（演示用户）
+  const handleWechatLogin = async () => {
+    const confirmed = window.confirm('将以演示用户身份登录，是否确认？');
+    if (!confirmed) return;
+    
+    try {
+      setError('');
+      setLoading(true);
+      const result = await authApi.loginAsDemo();
+      console.log('演示用户登录成功:', result);
+      navigate('/inbox');
+    } catch (err: any) {
+      setError(err.message || '登录失败');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // 切换到注册页面

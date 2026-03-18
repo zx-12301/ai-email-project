@@ -29,6 +29,7 @@ import {
 import AIAssistantPanel from './AIAssistantPanel'
 import SearchBar from './SearchBar'
 import NotificationPanel from './NotificationPanel'
+import { authApi } from '../api'
 
 export default function MailLayout() {
   const location = useLocation()
@@ -37,8 +38,61 @@ export default function MailLayout() {
   const [showUserDropdown, setShowUserDropdown] = useState(false)
   const [showAIAssistant, setShowAIAssistant] = useState(false)
   const [showNotification, setShowNotification] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const userDropdownRef = useRef<HTMLDivElement>(null)
+  
+  // 验证登录状态
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token')
+      
+      if (!token) {
+        alert('登录已过期，请重新登录！')
+        navigate('/login')
+        return
+      }
+      
+      try {
+        const user = await authApi.getCurrentUser()
+        setCurrentUser(user)
+      } catch (error: any) {
+        console.error('验证登录状态失败:', error)
+        // token 无效或过期
+        localStorage.removeItem('token')
+        alert('登录已过期，请重新登录！')
+        navigate('/login')
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    checkAuth()
+  }, [navigate])
+  
+  // 获取当前用户信息
+  useEffect(() => {
+    if (!loading && currentUser) {
+      // 用户信息已在 checkAuth 中获取
+    }
+  }, [loading, currentUser])
+  
+  // 退出登录
+  const handleLogout = async () => {
+    const confirmed = window.confirm('确定要退出登录吗？')
+    if (!confirmed) return
+    
+    try {
+      await authApi.logout()
+      navigate('/login')
+    } catch (error) {
+      console.error('退出登录失败:', error)
+      // 即使失败也清除本地 token
+      localStorage.removeItem('token')
+      navigate('/login')
+    }
+  }
   const notificationRef = useRef<HTMLDivElement>(null)
 
   // 点击外部关闭下拉菜单
@@ -143,6 +197,18 @@ export default function MailLayout() {
     return navItems.find(item => location.pathname === item.path)
   }
 
+  // 加载状态
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">加载中...</p>
+        </div>
+      </div>
+    )
+  }
+  
   return (
     <div className="h-screen flex bg-slate-50">
       {/* 左侧边栏 */}
@@ -370,7 +436,11 @@ export default function MailLayout() {
 
                     {/* 退出登录 */}
                     <div className="p-3 border-t border-slate-100">
-                      <button className="w-full text-center text-sm text-slate-600 hover:text-red-600 transition-colors">
+                      <button 
+                        onClick={handleLogout}
+                        className="w-full text-center text-sm text-slate-600 hover:text-red-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <LogOut className="w-4 h-4" />
                         退出登录
                       </button>
                     </div>

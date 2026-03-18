@@ -17,7 +17,12 @@ export class AuthService {
   /**
    * 发送验证码
    */
-  async sendVerificationCode(phone: string): Promise<{ success: boolean; message: string }> {
+  async sendVerificationCode(phone: string): Promise<{ 
+    success: boolean
+    message: string
+    code?: string
+    isNewUser?: boolean
+  }> {
     // 验证手机号格式
     const phoneRegex = /^1[3-9]\d{9}$/
     if (!phoneRegex.test(phone)) {
@@ -30,6 +35,8 @@ export class AuthService {
 
     // 查找或创建用户
     let user = await this.userRepository.findOne({ where: { phone } })
+    const isNewUser = !user
+    
     if (!user) {
       user = this.userRepository.create({ phone })
     }
@@ -44,7 +51,56 @@ export class AuthService {
 
     return {
       success: true,
-      message: '验证码已发送（开发环境请查看控制台）',
+      message: isNewUser 
+        ? '验证码已发送（新用户将自动注册）' 
+        : '验证码已发送',
+      code, // 开发环境返回验证码
+      isNewUser,
+    }
+  }
+
+  /**
+   * 演示用户登录
+   */
+  async loginAsDemo(): Promise<{
+    access_token: string
+    user: {
+      id: string
+      phone: string
+      email: string | null
+      name: string | null
+      avatar: string | null
+    }
+  }> {
+    const demoPhone = '13800138000'
+    
+    // 查找或创建演示用户
+    let user = await this.userRepository.findOne({ where: { phone: demoPhone } })
+    
+    if (!user) {
+      // 创建演示用户
+      user = this.userRepository.create({
+        phone: demoPhone,
+        name: '演示用户',
+        email: 'demo@aimail.com',
+        emailVerified: true,
+      })
+      await this.userRepository.save(user)
+    }
+    
+    // 生成 JWT token
+    const payload = { sub: user.id, phone: user.phone }
+    const access_token = this.jwtService.sign(payload)
+    
+    return {
+      access_token,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        email: user.email,
+        name: user.name,
+        avatar: user.avatar,
+      },
     }
   }
 

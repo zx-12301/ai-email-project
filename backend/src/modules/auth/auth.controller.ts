@@ -89,6 +89,15 @@ export class AuthController {
   }
 
   /**
+   * 演示用户登录
+   */
+  @Post('login/demo')
+  @HttpCode(HttpStatus.OK)
+  async loginAsDemo() {
+    return this.authService.loginAsDemo()
+  }
+
+  /**
    * 验证码登录/注册
    */
   @Post('login')
