@@ -399,16 +399,15 @@ export default function MailLayout() {
               <div className="relative" ref={userDropdownRef}>
                 <button 
                   onClick={() => setShowUserDropdown(!showUserDropdown)}
-                  className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-100 rounded-full cursor-pointer hover:bg-slate-200 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full cursor-pointer hover:bg-slate-200 transition-colors"
                 >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-medium">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
                     {currentUser?.name?.charAt(0) || currentUser?.email?.charAt(0).toUpperCase() || '用'}
                   </div>
-                  <div className="flex flex-col items-start">
+                  <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-700 font-medium">{currentUser?.name || '用户'}</span>
-                    <span className="text-[10px] text-slate-500">{currentUser?.email || currentUser?.phone}</span>
+                    <ChevronDown size={12} className="text-slate-400" />
                   </div>
-                  <ChevronDown size={12} className="text-slate-400" />
                 </button>
 
                 {/* 用户信息气泡框 */}
