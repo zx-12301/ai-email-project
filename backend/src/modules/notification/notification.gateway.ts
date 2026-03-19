@@ -9,6 +9,7 @@ import {
 } from '@nestjs/websockets'
 import { Server, Socket } from 'socket.io'
 import { Logger } from '@nestjs/common'
+import { JwtService } from '@nestjs/jwt'
 
 export interface NotificationPayload {
   type: 'new_mail' | 'mail_read' | 'mail_sent' | 'system'
@@ -36,6 +37,8 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
   private readonly logger = new Logger(NotificationGateway.name)
   private userSockets: Map<string, Set<string>> = new Map() // userId -> Set<socketId>
 
+  constructor(private jwtService: JwtService) {}
+
   /**
    * 客户端连接
    */
@@ -59,11 +62,28 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { userId: string; token?: string },
   ) {
-    const { userId } = data
+    const { userId, token } = data
 
-    if (!userId) {
-      client.emit('error', { message: '缺少 userId' })
-      return
+    if (!userId || !token) {
+      client.emit('error', { message: '缺少 userId 或 token' })
+      return { success: false, message: '缺少 userId 或 token' }
+    }
+
+    // 验证 JWT token
+    try {
+      const payload = this.jwtService.verify(token)
+      const tokenUserId = payload.sub
+
+      // 验证 token 中的用户 ID 与请求的 userId 匹配
+      if (tokenUserId !== userId) {
+        this.logger.warn(`用户 ID 不匹配: token=${tokenUserId}, request=${userId}`)
+        client.emit('error', { message: '用户身份验证失败' })
+        return { success: false, message: '用户身份验证失败' }
+      }
+    } catch (error) {
+      this.logger.warn(`Token 验证失败: ${error.message}`)
+      client.emit('error', { message: 'Token 无效或已过期' })
+      return { success: false, message: 'Token 无效或已过期' }
     }
 
     // 将 socket 加入用户房间

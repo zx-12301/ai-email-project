@@ -114,6 +114,14 @@ export class MailController {
   }
 
   /**
+   * 获取未读邮件数量
+   */
+  @Get('unread-count')
+  async getUnreadCount(@Request() req) {
+    return this.mailService.getUnreadCount(req.user.userId)
+  }
+
+  /**
    * 获取已发送
    */
   @Get('sent')
@@ -138,100 +146,11 @@ export class MailController {
   }
 
   /**
-   * 获取邮件详情
+   * 获取垃圾邮件
    */
-  @Get(':id')
-  async getMailById(@Request() req, @Param('id') id: string) {
-    return this.mailService.getMailById(req.user.userId, id)
-  }
-
-  /**
-   * 发送邮件
-   */
-  @Post()
-  async sendMail(@Request() req, @Body() body: SendMailDto) {
-    return this.mailService.sendMail(req.user.userId, {
-      from: req.user.phone,
-      fromName: 'User',
-      ...body,
-    })
-  }
-
-  /**
-   * 保存草稿
-   */
-  @Post('draft')
-  async saveDraft(@Request() req, @Body() body: SendMailDto) {
-    return this.mailService.sendMail(req.user.userId, {
-      from: req.user.phone,
-      fromName: 'User',
-      ...body,
-      isDraft: true,
-    })
-  }
-
-  /**
-   * 更新草稿
-   */
-  @Patch(':id')
-  async updateMail(@Request() req, @Param('id') id: string, @Body() data: Partial<SendMailDto>) {
-    return this.mailService.updateMail(req.user.userId, id, data)
-  }
-
-  /**
-   * 删除邮件（移动到垃圾箱）
-   */
-  @Delete(':id')
-  async moveToTrash(@Request() req, @Param('id') id: string) {
-    return this.mailService.moveToTrash(req.user.userId, id)
-  }
-
-  /**
-   * 恢复邮件
-   */
-  @Post(':id/restore')
-  async restoreMail(@Request() req, @Param('id') id: string) {
-    return this.mailService.restoreMail(req.user.userId, id)
-  }
-
-  /**
-   * 永久删除
-   */
-  @Delete(':id/permanent')
-  async permanentlyDelete(@Request() req, @Param('id') id: string) {
-    return this.mailService.permanentlyDelete(req.user.userId, id)
-  }
-
-  /**
-   * 清空垃圾箱
-   */
-  @Delete('trash/all')
-  async emptyTrash(@Request() req) {
-    return this.mailService.emptyTrash(req.user.userId)
-  }
-
-  /**
-   * 标记已读/未读
-   */
-  @Patch(':id/read')
-  async markAsRead(@Request() req, @Param('id') id: string, @Body() body: { isRead: boolean }) {
-    return this.mailService.markAsRead(req.user.userId, id, body.isRead)
-  }
-
-  /**
-   * 切换星标
-   */
-  @Patch(':id/star')
-  async toggleStar(@Request() req, @Param('id') id: string) {
-    return this.mailService.toggleStar(req.user.userId, id)
-  }
-
-  /**
-   * 归档邮件
-   */
-  @Post(':id/archive')
-  async archive(@Request() req, @Param('id') id: string) {
-    return this.mailService.archive(req.user.userId, id)
+  @Get('spam')
+  async getSpam(@Request() req, @Query('page') page: number = 1, @Query('limit') limit: number = 20) {
+    return this.mailService.getSpam(req.user.userId, page, limit)
   }
 
   /**
@@ -282,10 +201,119 @@ export class MailController {
     return {
       configured: isConfigured,
       connected: isConnected,
-      message: isConfigured 
-        ? (isConnected ? 'SMTP 已连接' : 'SMTP 配置正确但连接失败') 
+      message: isConfigured
+        ? (isConnected ? 'SMTP 已连接' : 'SMTP 配置正确但连接失败')
         : 'SMTP 未配置，请在 .env 文件中配置 SMTP_HOST, SMTP_USER, SMTP_PASS',
     }
+  }
+
+  /**
+   * 获取 WebSocket 连接状态
+   */
+  @Get('notification/status')
+  async getNotificationStatus() {
+    return {
+      onlineUsers: this.notificationService.getOnlineUserCount(),
+      enabled: true,
+      endpoint: '/notifications',
+    }
+  }
+
+  /**
+   * 获取邮件详情
+   */
+  @Get(':id')
+  async getMailById(@Request() req, @Param('id') id: string) {
+    return this.mailService.getMailById(req.user.userId, id)
+  }
+
+  /**
+   * 发送邮件
+   */
+  @Post()
+  async sendMail(@Request() req, @Body() body: SendMailDto) {
+    return this.mailService.sendMail(req.user.userId, {
+      from: req.user.phone,
+      fromName: 'User',
+      ...body,
+    })
+  }
+
+  /**
+   * 保存草稿
+   */
+  @Post('draft')
+  async saveDraft(@Request() req, @Body() body: SendMailDto) {
+    return this.mailService.sendMail(req.user.userId, {
+      from: req.user.phone,
+      fromName: 'User',
+      ...body,
+      isDraft: true,
+    })
+  }
+
+  /**
+   * 更新草稿
+   */
+  @Patch(':id')
+  async updateMail(@Request() req, @Param('id') id: string, @Body() data: Partial<SendMailDto>) {
+    return this.mailService.updateMail(req.user.userId, id, data)
+  }
+
+  /**
+   * 清空垃圾箱
+   */
+  @Delete('trash/all')
+  async emptyTrash(@Request() req) {
+    return this.mailService.emptyTrash(req.user.userId)
+  }
+
+  /**
+   * 删除邮件（移动到垃圾箱）
+   */
+  @Delete(':id')
+  async moveToTrash(@Request() req, @Param('id') id: string) {
+    return this.mailService.moveToTrash(req.user.userId, id)
+  }
+
+  /**
+   * 恢复邮件
+   */
+  @Post(':id/restore')
+  async restoreMail(@Request() req, @Param('id') id: string) {
+    return this.mailService.restoreMail(req.user.userId, id)
+  }
+
+  /**
+   * 永久删除
+   */
+  @Delete(':id/permanent')
+  async permanentlyDelete(@Request() req, @Param('id') id: string) {
+    return this.mailService.permanentlyDelete(req.user.userId, id)
+  }
+
+  /**
+   * 标记已读/未读
+   */
+  @Patch(':id/read')
+  async markAsRead(@Request() req, @Param('id') id: string, @Body() body: { isRead: boolean }) {
+    return this.mailService.markAsRead(req.user.userId, id, body.isRead)
+  }
+
+  /**
+   * 切换星标
+   */
+  @Patch(':id/star')
+  async toggleStar(@Request() req, @Param('id') id: string) {
+    return this.mailService.toggleStar(req.user.userId, id)
+  }
+
+  /**
+   * 归档邮件
+   */
+  @Post(':id/archive')
+  async archive(@Request() req, @Param('id') id: string) {
+    return this.mailService.archive(req.user.userId, id)
   }
 
   /**
@@ -293,7 +321,7 @@ export class MailController {
    */
   @Post('smtp/test')
   @HttpCode(HttpStatus.OK)
-  async testSmtp(@Body() body?: { 
+  async testSmtp(@Body() body?: {
     host?: string
     port?: number
     user?: string
@@ -317,18 +345,6 @@ export class MailController {
     return {
       success: isConnected,
       message: isConnected ? 'SMTP 连接成功' : 'SMTP 连接失败，请检查配置',
-    }
-  }
-
-  /**
-   * 获取 WebSocket 连接状态
-   */
-  @Get('notification/status')
-  async getNotificationStatus() {
-    return {
-      onlineUsers: this.notificationService.getOnlineUserCount(),
-      enabled: true,
-      endpoint: '/notifications',
     }
   }
 

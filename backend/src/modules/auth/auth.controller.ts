@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Request, Get, Patch } from '@nestjs/common'
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Request, Get, Patch, Query } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { IsString, IsMobilePhone, Length, IsEmail, IsOptional, MinLength } from 'class-validator'
 import { AuthService } from './auth.service'
@@ -149,7 +149,7 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   async changePassword(@Request() req, @Body() changePasswordDto: ChangePasswordDto) {
     return this.authService.changePassword(
-      req.user.sub,
+      req.user.userId,
       changePasswordDto.oldPassword,
       changePasswordDto.newPassword,
     )
@@ -175,5 +175,15 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   async logout() {
     return this.authService.logout()
+  }
+
+  /**
+   * 获取系统内所有用户
+   */
+  @Get('users')
+  @UseGuards(AuthGuard('jwt'))
+  async getAllUsers(@Request() req, @Query('excludeCurrent') excludeCurrent?: string) {
+    const exclude = excludeCurrent === 'true'
+    return this.authService.getAllUsers(exclude ? req.user.userId : undefined)
   }
 }

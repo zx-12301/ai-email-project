@@ -1,22 +1,24 @@
-import { useState } from 'react';
-import { 
-  Search, 
-  Star, 
-  Users, 
-  UserCircle2, 
-  ChevronDown, 
-  Plus, 
-  Mail, 
-  Phone, 
+import { useState, useEffect } from 'react';
+import {
+  Search,
+  Star,
+  Users,
+  UserCircle2,
+  ChevronDown,
+  Plus,
+  Mail,
+  Phone,
   MoreVertical,
   List,
   Grid3X3,
   Filter,
   Heart
 } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
+import { API_BASE_URL } from '../config/api';
 
 interface Contact {
-  id: number;
+  id: number | string;
   name: string;
   email: string;
   phone?: string;
@@ -28,6 +30,7 @@ interface Contact {
   avatar?: string;
   isStarred?: boolean;
   isFavorite?: boolean;
+  isTest?: boolean;
 }
 
 interface ContactGroup {
@@ -37,33 +40,55 @@ interface ContactGroup {
   icon?: string;
 }
 
+// 获取 Token
+const getToken = () => {
+  return localStorage.getItem('token');
+};
+
+// 获取系统所有用户
+const getSystemUsers = async (): Promise<any[]> => {
+  const response = await fetch(`${API_BASE_URL}/auth/users`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getToken()}`
+    }
+  });
+  if (!response.ok) {
+    throw new Error('获取用户列表失败');
+  }
+  return response.json();
+};
+
+// 联系人群组（静态数据）
 const mockContactGroups: ContactGroup[] = [
-  { id: 1, name: '全部联系人', count: 156, icon: 'folder' },
-  { id: 2, name: '集团领导班子', count: 12 },
-  { id: 3, name: '中层干部', count: 45 },
-  { id: 4, name: '运营班子成员', count: 8 },
-  { id: 5, name: '集团审计小组', count: 6 },
-  { id: 6, name: '国际联盟项目组', count: 23 },
-  { id: 7, name: 'UN 集团项目组', count: 18 },
-  { id: 8, name: '其他', count: 44 },
+  { id: 1, name: '全部联系人', count: 0, icon: 'folder' },
+  { id: 2, name: '集团领导班子', count: 0 },
+  { id: 3, name: '中层干部', count: 0 },
+  { id: 4, name: '运营班子成员', count: 0 },
+  { id: 5, name: '集团审计小组', count: 0 },
+  { id: 6, name: '国际联盟项目组', count: 0 },
+  { id: 7, name: 'UN 集团项目组', count: 0 },
+  { id: 8, name: '其他', count: 0 },
 ];
 
-const mockContacts: Contact[] = [
-  { 
-    id: 1, 
-    name: '诸葛明君', 
-    email: 'zhugunji@Spt.com', 
+// 测试数据（备用）
+const testContacts: Contact[] = [
+  {
+    id: 'test-1',
+    name: '诸葛明君',
+    email: 'zhugunji@Spt.com',
     mobile: '138****8888',
     position: '总裁',
     company: '速信达集团',
     group: '集团领导班子',
     isStarred: true,
     isFavorite: true,
-    avatar: '诸'
+    avatar: '诸',
+    isTest: true
   },
-  { 
-    id: 2, 
-    name: '盖力', 
+  {
+    id: 'test-2',
+    name: '盖力',
     email: 'dm@mail.modao.cc',
     mobile: '139****6666',
     position: '设计师',
@@ -71,94 +96,113 @@ const mockContacts: Contact[] = [
     group: '其他',
     isStarred: true,
     isFavorite: true,
-    avatar: '盖'
+    avatar: '盖',
+    isTest: true
   },
-  { 
-    id: 3, 
-    name: '王伟', 
+  {
+    id: 'test-3',
+    name: '王伟',
     email: 'wangw@Spt.com',
     mobile: '137****9999',
     position: '技术总监',
     company: '速信达集团',
     group: '中层干部',
     isStarred: true,
-    avatar: '王'
+    avatar: '王',
+    isTest: true
   },
-  { 
-    id: 4, 
-    name: '李娜', 
+  {
+    id: 'test-4',
+    name: '李娜',
     email: 'lin@Spt.com',
     mobile: '136****7777',
     position: '部门经理',
     company: '速信达集团',
     group: '中层干部',
-    avatar: '李'
-  },
-  { 
-    id: 5, 
-    name: '张三', 
-    email: 'zhangs@Spt.com',
-    mobile: '135****5555',
-    position: '项目经理',
-    company: '速信达集团',
-    group: 'UN 集团项目组',
-    avatar: '张'
-  },
-  { 
-    id: 6, 
-    name: '李四', 
-    email: 'lis@Spt.com',
-    mobile: '134****3333',
-    position: '开发工程师',
-    company: '速信达集团',
-    group: 'UN 集团项目组',
-    avatar: '李'
-  },
-  { 
-    id: 7, 
-    name: '王五', 
-    email: 'wangw@Spt.com',
-    mobile: '133****2222',
-    position: '产品专员',
-    company: '速信达集团',
-    group: '国际联盟项目组',
-    avatar: '王'
-  },
-  { 
-    id: 8, 
-    name: '赵六', 
-    email: 'zhaol@Spt.com',
-    mobile: '132****1111',
-    position: '运营经理',
-    company: '速信达集团',
-    group: '中层干部',
-    avatar: '赵'
+    avatar: '李',
+    isTest: true
   },
 ];
 
 type ViewMode = 'list' | 'table';
 
 export default function ContactsPage() {
+  const { showToast } = useToast();
   const [selectedGroup, setSelectedGroup] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [selectedContacts, setSelectedContacts] = useState<number[]>([]);
+  const [selectedContacts, setSelectedContacts] = useState<(number | string)[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [contactGroups, setContactGroups] = useState<ContactGroup[]>(mockContactGroups);
 
-  const filteredContacts = mockContacts.filter(contact => {
+  // 加载联系人列表
+  useEffect(() => {
+    loadContacts();
+  }, []);
+
+  const loadContacts = async () => {
+    try {
+      setLoading(true);
+      const userList = await getSystemUsers();
+
+      const transformedContacts: Contact[] = userList.map((user: any) => ({
+        id: user.id,
+        name: user.name || user.phone,
+        email: user.email || `${user.phone}@aimail.com`,
+        phone: user.phone,
+        mobile: user.phone ? `${user.phone.slice(0, 3)}****${user.phone.slice(-4)}` : undefined,
+        position: user.position || undefined,
+        company: user.company || undefined,
+        group: user.group || '其他',
+        isStarred: user.isStarred || false,
+        isFavorite: user.isFavorite || false,
+        avatar: (user.name || user.phone || '').charAt(0),
+        isTest: false,
+      }));
+
+      if (transformedContacts.length === 0) {
+        throw new Error('暂无联系人数据');
+      }
+
+      // 更新联系人群组统计
+      const groupCounts: Record<string, number> = {};
+      transformedContacts.forEach(contact => {
+        const group = contact.group || '其他';
+        groupCounts[group] = (groupCounts[group] || 0) + 1;
+      });
+
+      const updatedGroups = contactGroups.map(group => ({
+        ...group,
+        count: group.id === 1 ? transformedContacts.length : (groupCounts[group.name] || 0)
+      }));
+      setContactGroups(updatedGroups);
+      setContacts(transformedContacts);
+    } catch (error) {
+      console.error('加载联系人失败:', error);
+      // API 失败时显示测试数据
+      setContacts(testContacts);
+      showToast('加载联系人失败，显示测试数据', 'warning');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredContacts = contacts.filter(contact => {
     const matchesSearch = contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          contact.company?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesGroup = selectedGroup === 1 || contact.group === mockContactGroups.find(g => g.id === selectedGroup)?.name;
+    const matchesGroup = selectedGroup === 1 || contact.group === contactGroups.find(g => g.id === selectedGroup)?.name;
     return matchesSearch && matchesGroup;
   });
 
-  const toggleSelectContact = (id: number) => {
+  const toggleSelectContact = (id: number | string) => {
     setSelectedContacts(prev =>
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
     );
   };
 
-  const toggleFavorite = (e: React.MouseEvent, id: number) => {
+  const toggleFavorite = (e: React.MouseEvent, id: number | string) => {
     e.stopPropagation();
     console.log('Toggle favorite:', id);
   };
@@ -202,12 +246,14 @@ export default function ContactsPage() {
                 全部联系人
               </span>
             </div>
-            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">156</span>
+            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+              {contacts.length}
+            </span>
           </button>
 
           {/* 联系人分组 */}
           <div className="mt-2 space-y-0.5">
-            {mockContactGroups.slice(1).map((group) => (
+            {contactGroups.slice(1).map((group) => (
               <button
                 key={group.id}
                 onClick={() => setSelectedGroup(group.id)}
@@ -470,7 +516,7 @@ export default function ContactsPage() {
         {/* 分页 */}
         <div className="bg-white border-t border-slate-200 px-4 py-3 flex items-center justify-between">
           <span className="text-sm text-slate-600">
-            显示 {filteredContacts.length} / {mockContacts.length} 位联系人
+            显示 {filteredContacts.length} / {contacts.length} 位联系人
           </span>
           <div className="flex items-center gap-2">
             <button className="px-3 py-1.5 text-sm border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>

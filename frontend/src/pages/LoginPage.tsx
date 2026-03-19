@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, MessageSquare, Eye, EyeOff, User, Phone, Key, CheckCircle, AlertCircle } from 'lucide-react';
 import { authApi } from '../api';
+import { useToast } from '../contexts/ToastContext';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { showConfirm } = useToast();
   const [loginMethod, setLoginMethod] = useState<'wechat' | 'phone' | 'password'>('phone');
   const [rememberMe, setRememberMe] = useState(true);
   
@@ -128,7 +130,12 @@ export default function LoginPage() {
 
   // 企业微信登录（演示用户）
   const handleWechatLogin = async () => {
-    const confirmed = window.confirm('将以演示用户身份登录，是否确认？');
+    const confirmed = await showConfirm({
+      title: '演示登录',
+      message: '将以演示用户身份登录，是否确认？',
+      confirmText: '确认登录',
+      cancelText: '取消'
+    });
     if (!confirmed) return;
     
     try {

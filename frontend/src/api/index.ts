@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3001/api';
+import { API_BASE_URL } from '../config/api';
 
 // 获取存储的 token
 export const getToken = () => {
@@ -194,6 +194,17 @@ export const authApi = {
     removeToken();
     return handleResponse(response);
   },
+
+  /**
+   * 获取系统内所有用户
+   */
+  async getAllUsers(excludeCurrent = true) {
+    const response = await fetch(
+      `${API_BASE_URL}/auth/users?excludeCurrent=${excludeCurrent}`,
+      { headers: getHeaders(true) }
+    );
+    return handleResponse(response);
+  },
 };
 
 /**
@@ -232,14 +243,21 @@ export const mailApi = {
     return handleResponse(response);
   },
 
-  async getMailById(id: number) {
+  async getMailById(id: string) {
     const response = await fetch(`${API_BASE_URL}/mail/${id}`, {
       headers: getHeaders(true),
     });
     return handleResponse(response);
   },
 
-  async sendMail(data: any) {
+  async sendMail(data: {
+    to: string[];
+    cc?: string[];
+    subject: string;
+    content: string;
+    isDraft?: boolean;
+    sendViaSmtp?: boolean;
+  }) {
     const response = await fetch(`${API_BASE_URL}/mail`, {
       method: 'POST',
       headers: getHeaders(true),
@@ -248,7 +266,7 @@ export const mailApi = {
     return handleResponse(response);
   },
 
-  async deleteMail(id: number) {
+  async deleteMail(id: string) {
     const response = await fetch(`${API_BASE_URL}/mail/${id}`, {
       method: 'DELETE',
       headers: getHeaders(true),
@@ -256,7 +274,7 @@ export const mailApi = {
     return handleResponse(response);
   },
 
-  async restoreMail(id: number) {
+  async restoreMail(id: string) {
     const response = await fetch(`${API_BASE_URL}/mail/${id}/restore`, {
       method: 'POST',
       headers: getHeaders(true),
@@ -264,7 +282,7 @@ export const mailApi = {
     return handleResponse(response);
   },
 
-  async permanentlyDeleteMail(id: number) {
+  async permanentlyDeleteMail(id: string) {
     const response = await fetch(`${API_BASE_URL}/mail/${id}/permanent`, {
       method: 'DELETE',
       headers: getHeaders(true),
@@ -272,7 +290,7 @@ export const mailApi = {
     return handleResponse(response);
   },
 
-  async markAsRead(id: number, isRead = true) {
+  async markAsRead(id: string, isRead = true) {
     const response = await fetch(`${API_BASE_URL}/mail/${id}/read`, {
       method: 'PATCH',
       headers: getHeaders(true),
@@ -281,7 +299,7 @@ export const mailApi = {
     return handleResponse(response);
   },
 
-  async toggleStar(id: number) {
+  async toggleStar(id: string) {
     const response = await fetch(`${API_BASE_URL}/mail/${id}/star`, {
       method: 'PATCH',
       headers: getHeaders(true),

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3001/api';
+import { API_BASE_URL } from '../config/api';
 
 // 获取 Token
 const getToken = () => {
@@ -66,18 +66,13 @@ export const mailApi = {
 
   // 获取垃圾邮件
   async getSpam(page: number = 1, limit: number = 20) {
-    const response = await fetch(`${API_BASE_URL}/mail/inbox?page=${page}&limit=${limit}`, {
+    const response = await fetch(`${API_BASE_URL}/mail/spam?page=${page}&limit=${limit}`, {
       headers: getHeaders()
     });
     if (!response.ok) {
       throw new Error('获取垃圾邮件失败');
     }
-    const result = await response.json();
-    // 在前端过滤出垃圾邮件（folder === 'spam'）
-    return {
-      ...result,
-      data: result.data.filter((mail: any) => mail.folder === 'spam')
-    };
+    return response.json();
   },
 
   // 获取邮件详情
@@ -131,7 +126,7 @@ export const mailApi = {
   },
 
   // 删除单封邮件
-  async delete(id: number): Promise<void> {
+  async deleteMail(id: number | string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/mail/${id}`, {
       method: 'DELETE',
       headers: getHeaders()
@@ -142,14 +137,14 @@ export const mailApi = {
   },
 
   // 批量删除邮件
-  async batchDelete(ids: number[]): Promise<void> {
+  async batchDelete(ids: (number | string)[]): Promise<void> {
     for (const id of ids) {
-      await this.delete(id);
+      await this.deleteMail(id);
     }
   },
 
   // 恢复邮件（从垃圾箱）
-  async restore(id: number): Promise<void> {
+  async restore(id: number | string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/mail/${id}/restore`, {
       method: 'POST',
       headers: getHeaders()
@@ -160,7 +155,7 @@ export const mailApi = {
   },
 
   // 永久删除邮件
-  async permanentDelete(id: number): Promise<void> {
+  async permanentDelete(id: number | string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/mail/${id}/permanent`, {
       method: 'DELETE',
       headers: getHeaders()
@@ -171,14 +166,28 @@ export const mailApi = {
   },
 
   // 转发邮件
-  async forward(id: number, recipient: string): Promise<void> {
+  async forward(mailId: string | number, recipient: string): Promise<void> {
+    // 获取原始邮件
+    const originalMail = await this.getMailById(String(mailId));
+
+    const date = new Date(originalMail.createdAt).toLocaleString('zh-CN');
+    const forwardContent = `
+---------- 转发的邮件 ----------
+发件人：${originalMail.fromName || originalMail.from} <${originalMail.from}>
+日期：${date}
+收件人：${(originalMail.to || []).join(', ')}
+主题：${originalMail.subject}
+
+${originalMail.content || ''}
+`;
+
     const response = await fetch(`${API_BASE_URL}/mail`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({
         to: [recipient],
-        subject: `Fwd: 原邮件主题`,
-        content: `---------- Forwarded message ----------\n\n原邮件内容...`
+        subject: `转发：${originalMail.subject || ''}`,
+        content: forwardContent
       })
     });
     if (!response.ok) {
@@ -187,7 +196,7 @@ export const mailApi = {
   },
 
   // 归档邮件
-  async archive(id: number): Promise<void> {
+  async archive(id: number | string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/mail/${id}/archive`, {
       method: 'POST',
       headers: getHeaders()
@@ -198,7 +207,7 @@ export const mailApi = {
   },
 
   // 标记已读/未读
-  async markAsRead(id: number, isRead: boolean = true): Promise<void> {
+  async markAsRead(id: number | string, isRead: boolean = true): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/mail/${id}/read`, {
       method: 'PATCH',
       headers: getHeaders(),
@@ -210,14 +219,14 @@ export const mailApi = {
   },
 
   // 批量标记已读
-  async batchMarkAsRead(ids: number[], isRead: boolean = true): Promise<void> {
+  async batchMarkAsRead(ids: (number | string)[], isRead: boolean = true): Promise<void> {
     for (const id of ids) {
       await this.markAsRead(id, isRead);
     }
   },
 
   // 标星/取消标星
-  async toggleStar(id: number): Promise<void> {
+  async toggleStar(id: number | string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/mail/${id}/star`, {
       method: 'PATCH',
       headers: getHeaders()
@@ -228,7 +237,7 @@ export const mailApi = {
   },
 
   // 移动邮件到文件夹
-  async moveToFolder(id: number, folder: string): Promise<void> {
+  async moveToFolder(id: number | string, folder: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/mail/${id}`, {
       method: 'PATCH',
       headers: getHeaders(),
@@ -239,19 +248,8 @@ export const mailApi = {
     }
   },
 
-  // 归档邮件
-  async archive(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/mail/${id}/archive`, {
-      method: 'POST',
-      headers: getHeaders()
-    });
-    if (!response.ok) {
-      throw new Error('归档失败');
-    }
-  },
-
   // 标记为垃圾邮件
-  async markAsSpam(id: number): Promise<void> {
+  async markAsSpam(id: number | string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/mail/${id}`, {
       method: 'PATCH',
       headers: getHeaders(),
@@ -307,13 +305,13 @@ export const mailApi = {
     return response.json();
   },
 
-  // 获取联系人
-  async getContacts() {
-    const response = await fetch(`${API_BASE_URL}/contact`, {
+  // 获取未读邮件数量
+  async getUnreadCount() {
+    const response = await fetch(`${API_BASE_URL}/mail/unread-count`, {
       headers: getHeaders()
     });
     if (!response.ok) {
-      throw new Error('获取联系人失败');
+      throw new Error('获取未读数量失败');
     }
     return response.json();
   }

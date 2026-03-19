@@ -1,11 +1,9 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Send,
   Eye,
   Save,
-  Settings,
-  Plus,
   Paperclip,
   FileText,
   Image,
@@ -13,67 +11,242 @@ import {
   Bold,
   Italic,
   Underline,
-  Strikethrough,
-  Type,
-  Highlighter,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-  List,
-  ListOrdered,
-  Indent,
-  Outdent,
-  Quote,
-  Code,
   ChevronDown,
   Search,
   Users,
-  Folder,
-  X,
-  MoreVertical,
-  User,
-  Phone,
-  MessageSquare,
-  Sparkles
+  Sparkles,
+  ArrowLeft
 } from 'lucide-react';
+import { mailApi } from '../api/mail';
+import { useToast } from '../contexts/ToastContext';
+import { API_BASE_URL } from '../config/api';
 
-interface Contact {
-  id: number;
-  name: string;
-  email: string;
-  group?: string;
+interface OriginalMail {
+  id: string;
+  from: string;
+  fromName: string;
+  to: string[];
+  subject: string;
+  content: string;
+  createdAt: string;
 }
 
-const recentContacts: Contact[] = [
-  { id: 1, name: '梦忻雨', email: 'demon@Spt.com' },
-  { id: 2, name: '刘晓华', email: 'liuxh@Spt.com' },
-  { id: 3, name: '诸葛明君', email: 'zhugemj@Spt.com' },
-  { id: 4, name: '张军俊', email: 'zhangjj@Spt.com' },
-  { id: 5, name: '华罗强', email: 'hualq@Spt.com' },
-  { id: 6, name: '吴艳君', email: 'wuyj@Spt.com' },
-  { id: 7, name: '董明君', email: 'dongmj@Spt.com' },
-  { id: 8, name: '华罗忻', email: 'hualx@Spt.com' },
-  { id: 9, name: '万伟', email: 'wangw@Spt.com' },
-  { id: 10, name: '李绅', email: '109832@qq.com' },
-  { id: 11, name: '刘海', email: 'liuhai@gmail.com' },
-  { id: 12, name: '王总', email: 'wangjianmin@163.com' },
-];
-
-const contactGroups = [
-  { name: '集团领导班子', count: 12 },
-  { name: '中层干部', count: 45 },
-  { name: '运营班子成员', count: 8 },
-  { name: '集团审计小组', count: 6 },
-  { name: '国际联盟项目组', count: 23 },
-];
+interface Contact {
+  id: string;
+  name: string;
+  email: string;
+}
 
 export default function ReplyPage() {
   const navigate = useNavigate();
-  const [content, setContent] = useState('');
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const { showToast } = useToast();
+
+  const mailId = searchParams.get('mailId');
+  const mode = searchParams.get('mode') || 'reply'; // reply, replyAll, forward
+
+  // 获取来源页面（从邮件详情页传递过来）
+  const fromPage = (location.state?.from as string) || null;
+
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [originalMail, setOriginalMail] = useState<OriginalMail | null>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+
+  // 表单数据
+  const [formData, setFormData] = useState({
+    to: '',
+    cc: '',
+    bcc: '',
+    subject: '',
+    content: '',
+  });
+
   const [showCC, setShowCC] = useState(false);
   const [showBCC, setShowBCC] = useState(false);
-  const [showSignature, setShowSignature] = useState(true);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  // 加载原始邮件和联系人
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // 加载联系人
+        const contactsData = await mailApi.getContacts();
+        setContacts(contactsData || []);
+
+        // 如果有邮件 ID，加载原始邮件
+        if (mailId) {
+          const mail = await mailApi.getMailById(mailId);
+          setOriginalMail(mail);
+
+          // 根据模式预填充表单
+          if (mode === 'reply') {
+            setFormData({
+              to: mail.from || '',
+              cc: '',
+              bcc: '',
+              subject: `回复：${mail.subject || ''}`,
+              content: '',
+            });
+          } else if (mode === 'replyAll') {
+            const allRecipients = [mail.from, ...(mail.to || [])].filter(Boolean).join(', ');
+            setFormData({
+              to: allRecipients,
+              cc: '',
+              bcc: '',
+              subject: `回复：${mail.subject || ''}`,
+              content: '',
+            });
+          } else if (mode === 'forward') {
+            setFormData({
+              to: '',
+              cc: '',
+              bcc: '',
+              subject: `转发：${mail.subject || ''}`,
+              content: formatForwardContent(mail),
+            });
+          }
+        }
+      } catch (error) {
+        console.error('加载数据失败:', error);
+        showToast('加载数据失败', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [mailId, mode]);
+
+  // 格式化转发内容
+  const formatForwardContent = (mail: OriginalMail): string => {
+    const date = new Date(mail.createdAt).toLocaleString('zh-CN');
+    return `
+---------- 转发的邮件 ----------
+发件人：${mail.fromName || mail.from} <${mail.from}>
+日期：${date}
+收件人：${(mail.to || []).join(', ')}
+主题：${mail.subject}
+
+${mail.content || ''}
+`;
+  };
+
+  // 处理发送
+  const handleSend = async () => {
+    if (!formData.to) {
+      showToast('请输入收件人', 'warning');
+      return;
+    }
+
+    if (!formData.subject) {
+      showToast('请输入邮件主题', 'warning');
+      return;
+    }
+
+    setSending(true);
+    try {
+      await mailApi.sendMail({
+        to: formData.to.split(',').map(e => e.trim()),
+        cc: formData.cc ? formData.cc.split(',').map(e => e.trim()) : [],
+        subject: formData.subject,
+        content: formData.content,
+        isDraft: false,
+      });
+
+      showToast('邮件发送成功！', 'success');
+      // 如果有来源页面，返回到来源页面；否则返回上一页
+      if (fromPage) {
+        navigate(fromPage);
+      } else {
+        navigate(-1);
+      }
+    } catch (error: any) {
+      showToast('发送失败：' + error.message, 'error');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // 保存草稿
+  const handleSaveDraft = async () => {
+    setSending(true);
+    try {
+      await mailApi.sendMail({
+        to: formData.to ? formData.to.split(',').map(e => e.trim()) : [],
+        subject: formData.subject,
+        content: formData.content,
+        isDraft: true,
+      });
+      showToast('草稿已保存！', 'success');
+    } catch (error: any) {
+      showToast('保存失败：' + error.message, 'error');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // AI 生成回复
+  const handleAIGenerate = async () => {
+    if (!aiPrompt) {
+      showToast('请输入 AI 提示词', 'warning');
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/ai/generate-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          tone: 'formal',
+          context: originalMail ? `回复这封邮件：${originalMail.subject}` : undefined
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.content) {
+          setFormData(prev => ({ ...prev, content: result.content }));
+          showToast('AI 生成成功', 'success');
+        }
+      } else {
+        showToast('AI 生成失败', 'error');
+      }
+    } catch (error) {
+      showToast('AI 生成失败', 'error');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  // 格式化日期
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-white">
+        <div className="text-slate-500">加载中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex bg-white">
@@ -82,22 +255,27 @@ export default function ReplyPage() {
         {/* 顶部工具栏 */}
         <div className="border-b border-slate-200 px-4 py-3 bg-white">
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md font-medium transition-colors">
+            <button
+              onClick={() => fromPage ? navigate(fromPage) : navigate(-1)}
+              className="p-2 hover:bg-slate-100 rounded-md"
+            >
+              <ArrowLeft className="w-4 h-4 text-slate-600" />
+            </button>
+            <button
+              onClick={handleSend}
+              disabled={sending}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-sm rounded-md font-medium transition-colors"
+            >
               <Send className="w-4 h-4" />
-              发送
+              {sending ? '发送中...' : '发送'}
             </button>
-            <button className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
-              <Eye className="w-4 h-4" />
-              预览
-            </button>
-            <button className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
+            <button
+              onClick={handleSaveDraft}
+              disabled={sending}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+            >
               <Save className="w-4 h-4" />
               存草稿
-            </button>
-            <button className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
-              <Settings className="w-4 h-4" />
-              发信设置
-              <ChevronDown className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -109,15 +287,15 @@ export default function ReplyPage() {
             <div className="flex items-start gap-3 py-3 border-b border-slate-100">
               <div className="flex items-center gap-2 w-20 flex-shrink-0">
                 <span className="text-sm text-slate-600">收件人：</span>
-                <button className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
-                  <Plus className="w-3 h-3 text-white" />
-                </button>
               </div>
               <div className="flex-1">
-                <div className="text-sm text-slate-700">
-                  <span className="text-slate-900 font-medium">星耀科技</span>
-                  <span className="text-slate-500 ml-1">&lt;xykj@sunshine.com&gt;</span>
-                </div>
+                <input
+                  type="text"
+                  value={formData.to}
+                  onChange={(e) => setFormData({ ...formData, to: e.target.value })}
+                  placeholder="请输入收件人邮箱"
+                  className="w-full text-sm focus:outline-none"
+                />
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -132,9 +310,6 @@ export default function ReplyPage() {
                 >
                   密送
                 </button>
-                <button className="text-sm text-slate-600 hover:text-blue-600">
-                  单独发送
-                </button>
               </div>
             </div>
 
@@ -144,6 +319,8 @@ export default function ReplyPage() {
                 <span className="text-sm text-slate-600 w-20">抄送：</span>
                 <input
                   type="text"
+                  value={formData.cc}
+                  onChange={(e) => setFormData({ ...formData, cc: e.target.value })}
                   placeholder="请输入抄送人邮箱"
                   className="flex-1 text-sm focus:outline-none"
                 />
@@ -156,6 +333,8 @@ export default function ReplyPage() {
                 <span className="text-sm text-slate-600 w-20">密送：</span>
                 <input
                   type="text"
+                  value={formData.bcc}
+                  onChange={(e) => setFormData({ ...formData, bcc: e.target.value })}
                   placeholder="请输入密送人邮箱"
                   className="flex-1 text-sm focus:outline-none"
                 />
@@ -167,120 +346,33 @@ export default function ReplyPage() {
               <span className="text-sm text-slate-600 w-20">主　题：</span>
               <input
                 type="text"
-                defaultValue="回复：协同办公软件推荐"
+                value={formData.subject}
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                placeholder="请输入邮件主题"
                 className="flex-1 text-sm text-slate-900 font-medium focus:outline-none"
               />
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-green-600">已于</span>
-                <button className="text-sm text-green-600 hover:underline">保存草稿</button>
-              </div>
             </div>
 
-            {/* 工具栏 */}
+            {/* AI 写作面板 */}
             <div className="py-3 border-b border-slate-100">
-              {/* 第一行：附件、模板、签名 */}
-              <div className="flex items-center gap-3 mb-3">
-                <div className="relative">
-                  <button className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-blue-600">
-                    <Paperclip className="w-4 h-4" />
-                    <span>添加附件</span>
-                    <span className="text-xs text-slate-400">（单个附件最大为 2G）</span>
-                    <ChevronDown className="w-3 h-3" />
-                  </button>
-                </div>
-                <button className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-blue-600">
-                  <FileText className="w-4 h-4" />
-                  <span>邮件模板</span>
-                </button>
-                <button className="p-1.5 hover:bg-slate-100 rounded">
-                  <Image className="w-4 h-4 text-blue-600" />
-                </button>
-                <div className="flex-1" />
-                <button
-                  onClick={() => setShowSignature(!showSignature)}
-                  className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-blue-600"
-                >
-                  <span>签名</span>
-                </button>
-                <button className="p-1.5 hover:bg-slate-100 rounded">
-                  <MoreVertical className="w-4 h-4 text-slate-600" />
-                </button>
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-purple-500" />
+                <span className="text-sm font-medium text-slate-700">AI 写作助手</span>
               </div>
-
-              {/* 第二行：富文本工具栏 */}
-              <div className="flex items-center gap-1 p-2 bg-slate-50 rounded-lg">
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Image className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Link className="w-4 h-4 text-slate-600" />
-                </button>
-                <div className="w-px h-5 bg-slate-200 mx-2" />
-                <select className="px-3 py-1.5 text-sm border border-slate-200 bg-white rounded hover:bg-slate-50">
-                  <option>默认字体</option>
-                  <option>微软雅黑</option>
-                  <option>宋体</option>
-                  <option>黑体</option>
-                </select>
-                <select className="px-3 py-1.5 text-sm border border-slate-200 bg-white rounded hover:bg-slate-50">
-                  <option>字号</option>
-                  <option>12px</option>
-                  <option>14px</option>
-                  <option>16px</option>
-                  <option>18px</option>
-                </select>
-                <div className="w-px h-5 bg-slate-200 mx-2" />
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Bold className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Italic className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Underline className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Strikethrough className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Type className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Highlighter className="w-4 h-4 text-slate-600" />
-                </button>
-                <div className="w-px h-5 bg-slate-200 mx-2" />
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <AlignLeft className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <AlignCenter className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <AlignRight className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <AlignJustify className="w-4 h-4 text-slate-600" />
-                </button>
-                <div className="w-px h-5 bg-slate-200 mx-2" />
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <List className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <ListOrdered className="w-4 h-4 text-slate-600" />
-                </button>
-                <div className="w-px h-5 bg-slate-200 mx-2" />
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Indent className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Outdent className="w-4 h-4 text-slate-600" />
-                </button>
-                <div className="w-px h-5 bg-slate-200 mx-2" />
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Quote className="w-4 h-4 text-slate-600" />
-                </button>
-                <button className="p-2 hover:bg-white rounded transition-colors">
-                  <Code className="w-4 h-4 text-slate-600" />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="描述您想写的内容，例如：礼貌地确认收到邮件并表示感谢"
+                  className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <button
+                  onClick={handleAIGenerate}
+                  disabled={aiGenerating}
+                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:bg-slate-300 text-white text-sm rounded-md transition-colors"
+                >
+                  {aiGenerating ? '生成中...' : '生成'}
                 </button>
               </div>
             </div>
@@ -288,70 +380,42 @@ export default function ReplyPage() {
             {/* 编辑区 */}
             <div className="py-4">
               <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                 placeholder="输入正文"
-                className="w-full min-h-[200px] text-sm focus:outline-none resize-none"
+                className="w-full min-h-[200px] text-sm focus:outline-none resize-none border border-slate-200 rounded-md p-3"
               />
             </div>
 
             {/* 原始邮件 */}
-            <div className="py-4 border-t border-slate-100">
-              <div className="text-sm text-slate-500 mb-3">原始邮件：</div>
-              <div className="bg-slate-50 rounded-lg p-4">
-                <div className="space-y-2 text-sm text-slate-600 mb-4">
-                  <div>
-                    <span className="text-slate-500">发件人：</span>
-                    <span className="text-slate-900">星耀科技 &lt;xykj@sunshine.com&gt;</span>
+            {originalMail && mode !== 'forward' && (
+              <div className="py-4 border-t border-slate-100">
+                <div className="text-sm text-slate-500 mb-3">原始邮件：</div>
+                <div className="bg-slate-50 rounded-lg p-4">
+                  <div className="space-y-2 text-sm text-slate-600 mb-4">
+                    <div>
+                      <span className="text-slate-500">发件人：</span>
+                      <span className="text-slate-900">{originalMail.fromName || originalMail.from} &lt;{originalMail.from}&gt;</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">发件时间：</span>
+                      <span className="text-slate-900">{formatDate(originalMail.createdAt)}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">收件人：</span>
+                      <span className="text-slate-900">{(originalMail.to || []).join(', ')}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">主题：</span>
+                      <span className="text-slate-900">{originalMail.subject}</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-slate-500">发件时间：</span>
-                    <span className="text-slate-900">2027 年 11 月 07 日 10:59</span>
+                  <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap border-t border-slate-200 pt-4">
+                    {originalMail.content}
                   </div>
-                  <div>
-                    <span className="text-slate-500">收件人：</span>
-                    <span className="text-slate-900">董欣 &lt;dongx@Spt.com&gt;</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">主题：</span>
-                    <span className="text-slate-900">协同办公软件推荐</span>
-                  </div>
-                </div>
-
-                <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                  {`尊敬的董主任，
-
-您好！
-
-我是星耀科技的售前顾问刘军，很高兴通过这封邮件向您介绍我们最新的协同办公软件。
-
-在当今快节奏的工作环境中，团队协作的效率直接影响到项目的成功与否。我们的协同办公软件正是为了解决这个问题而设计，旨在提升团队之间的沟通、协作与管理效率。
-
-主要功能特点：
-1. 实时协作编辑 - 支持多人同时在线编辑文档
-2. 项目管理 - 完整的项目进度跟踪和任务分配
-3. 即时通讯 - 内置企业级即时通讯工具
-4. 文件共享 - 安全便捷的文件存储和共享
-5. 日程管理 - 团队日程安排和会议管理
-
-我们相信这款软件能够显著提升贵司的办公效率。如果您有兴趣了解更多详情，我很乐意安排一次产品演示。
-
-期待您的回复！
-
-此致
-敬礼
-
-刘军
-星耀科技 售前顾问
-电话：138-8888-8888
-邮箱：liujun@xykj.com`}
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-slate-200 text-sm text-slate-500">
-                  <div>发件人：董欣 dongx@Spt.com</div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -372,50 +436,30 @@ export default function ReplyPage() {
 
         {/* 联系人列表 */}
         <div className="flex-1 overflow-y-auto p-3">
-          {/* 最近联系人 */}
           <div className="mb-4">
-            <div className="flex items-center gap-1 mb-2 cursor-pointer">
+            <div className="flex items-center gap-1 mb-2">
               <ChevronDown className="w-4 h-4 text-slate-400" />
-              <span className="text-sm font-medium text-slate-700">最近联系人</span>
+              <span className="text-sm font-medium text-slate-700">联系人</span>
             </div>
             <div className="space-y-1">
-              {recentContacts.map((contact) => (
+              {contacts.map((contact) => (
                 <div
                   key={contact.id}
+                  onClick={() => setFormData({ ...formData, to: contact.email })}
                   className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer"
                 >
                   <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
-                    {contact.name.charAt(0)}
+                    {(contact.name || contact.email).charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-slate-900 truncate">{contact.name}</div>
+                    <div className="text-xs text-slate-900 truncate">{contact.name || contact.email}</div>
                     <div className="text-xs text-slate-500 truncate">{contact.email}</div>
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* 邮箱联系人 */}
-          <div>
-            <div className="flex items-center gap-1 mb-2 cursor-pointer">
-              <ChevronDown className="w-4 h-4 text-slate-400" />
-              <span className="text-sm font-medium text-slate-700">邮箱联系人</span>
-            </div>
-            <div className="space-y-1">
-              {contactGroups.map((group, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer"
-                >
-                  <Users className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm text-slate-700">{group.name}</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer">
-                <Users className="w-4 h-4 text-slate-400" />
-                <span className="text-sm text-slate-700">全部联系人</span>
-              </div>
+              {contacts.length === 0 && (
+                <div className="text-xs text-slate-400 text-center py-4">暂无联系人</div>
+              )}
             </div>
           </div>
         </div>

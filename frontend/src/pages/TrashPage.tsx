@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Star, 
-  Paperclip, 
-  Trash2, 
-  ChevronDown, 
+import {
+  Star,
+  Paperclip,
+  Trash2,
+  ChevronDown,
   MoreVertical,
   Forward,
   Shield,
@@ -19,6 +19,7 @@ import {
   Folder
 } from 'lucide-react';
 import { mailApi } from '../api/mail';
+import { useToast } from '../contexts/ToastContext';
 
 interface Email {
   id: number | string;
@@ -71,7 +72,8 @@ const mockDeletedEmails: Email[] = [
 
 export default function TrashPage() {
   const navigate = useNavigate();
-  const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
+  const { showToast, showConfirm } = useToast();
+  const [selectedEmails, setSelectedEmails] = useState<(number | string)[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [deletedEmails, setDeletedEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(false);
@@ -155,7 +157,7 @@ export default function TrashPage() {
   const showResultMessage = (realCount: number, totalCount: number, action: string) => {
     const testCount = totalCount - realCount;
     let message = '';
-    
+
     if (realCount > 0 && testCount > 0) {
       message = `已${action} ${realCount} 封真实邮件（测试数据无法${action}）`;
     } else if (realCount > 0) {
@@ -165,8 +167,8 @@ export default function TrashPage() {
     } else {
       message = `请先选择要${action}的邮件`;
     }
-    
-    alert(message);
+
+    showToast(message, realCount > 0 ? 'success' : 'warning');
   };
   
   // 分页控制函数
@@ -208,8 +210,12 @@ export default function TrashPage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  const handleEmailClick = (emailId: number | string) => {
-    navigate(`/mail/${emailId}`);
+  const handleEmailClick = (emailId: number | string, isTest?: boolean) => {
+    if (isTest) {
+      showToast('测试数据仅用于展示，无法查看详情', 'warning');
+      return;
+    }
+    navigate(`/mail/${emailId}`, { state: { from: '/trash' } });
   };
 
   const toggleSelect = (id: number | string) => {
@@ -229,221 +235,59 @@ export default function TrashPage() {
   
   const handleDelete = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要永久删除的邮件');
+      showToast('请先选择要永久删除的邮件', 'warning');
       return;
     }
-    const confirmed = window.confirm(`确定要永久删除选中的 ${selectedEmails.length} 封邮件吗？此操作不可恢复！`);
+    const confirmed = await showConfirm({
+      title: '确认删除',
+      message: '确定要永久删除选中的邮件吗？此操作不可恢复！',
+      confirmText: '删除',
+      type: 'danger'
+    });
     if (confirmed) {
       const realIds = getRealEmailIds();
       if (realIds.length === 0) {
-        alert('测试数据无法删除，请选择真实数据邮件');
+        showToast('测试数据无法删除，请选择真实数据邮件', 'warning');
         setSelectedEmails([]);
         setSelectAll(false);
         return;
       }
       try {
         for (const id of realIds) {
-          await mailApi.permanentDelete(Number(id));
+          await mailApi.permanentDelete(id);
         }
         await loadDeletedEmails();
         showResultMessage(realIds.length, selectedEmails.length, '永久删除');
         setSelectedEmails([]);
         setSelectAll(false);
       } catch (error) {
-        alert('删除失败：' + (error as any).message);
+        showToast('删除失败：' + (error as any).message, 'error');
       }
     }
   };
   
   const handleRestore = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要恢复的邮件');
+      showToast('请先选择要恢复的邮件', 'warning');
       return;
     }
     const realIds = getRealEmailIds();
     if (realIds.length === 0) {
-      alert('测试数据无法恢复，请选择真实数据邮件');
+      showToast('测试数据无法恢复，请选择真实数据邮件', 'warning');
       setSelectedEmails([]);
       setSelectAll(false);
       return;
     }
     try {
       for (const id of realIds) {
-        await mailApi.restore(Number(id));
+        await mailApi.restore(id);
       }
       await loadDeletedEmails();
       showResultMessage(realIds.length, selectedEmails.length, '恢复');
       setSelectedEmails([]);
       setSelectAll(false);
     } catch (error) {
-      alert('恢复失败：' + (error as any).message);
-    }
-  };
-  
-  const handleForward = async () => {
-    if (selectedEmails.length === 0) {
-      alert('请先选择要转发的邮件');
-      return;
-    }
-    const recipient = window.prompt('请输入收件人邮箱：');
-    if (recipient) {
-      const realIds = getRealEmailIds();
-      if (realIds.length === 0) {
-        alert('测试数据无法转发，请选择真实数据邮件');
-        setSelectedEmails([]);
-        setSelectAll(false);
-        return;
-      }
-      try {
-        for (const id of realIds) {
-          await mailApi.forward(Number(id), recipient);
-        }
-        alert(`已转发 ${realIds.length} 封邮件给 ${recipient}`);
-        setSelectedEmails([]);
-        setSelectAll(false);
-      } catch (error) {
-        alert('转发失败：' + (error as any).message);
-      }
-    }
-  };
-  
-  const handleSpam = async () => {
-    if (selectedEmails.length === 0) {
-      alert('请先选择要标记为垃圾邮件的邮件');
-      return;
-    }
-    const confirmed = window.confirm(`确定要将选中的 ${selectedEmails.length} 封邮件标记为垃圾邮件吗？`);
-    if (confirmed) {
-      const realIds = getRealEmailIds();
-      if (realIds.length === 0) {
-        alert('测试数据无法标记，请选择真实数据邮件');
-        setSelectedEmails([]);
-        setSelectAll(false);
-        return;
-      }
-      try {
-        for (const id of realIds) {
-          await mailApi.moveToFolder(Number(id), 'spam');
-        }
-        await loadDeletedEmails();
-        showResultMessage(realIds.length, selectedEmails.length, '标记为垃圾邮件');
-        setSelectedEmails([]);
-        setSelectAll(false);
-      } catch (error) {
-        alert('标记失败：' + (error as any).message);
-      }
-    }
-  };
-  
-  const handleMarkAsRead = async () => {
-    if (selectedEmails.length === 0) {
-      alert('请先选择要标记的邮件');
-      return;
-    }
-    try {
-      const realIds = getRealEmailIds();
-      if (realIds.length === 0) {
-        alert('测试数据无法标记，请选择真实数据邮件');
-        setSelectedEmails([]);
-        setSelectAll(false);
-        setShowMarkMenu(false);
-        return;
-      }
-      for (const id of realIds) {
-        await mailApi.markAsRead(Number(id), true);
-      }
-      await loadDeletedEmails();
-      showResultMessage(realIds.length, selectedEmails.length, '标记为已读');
-      setSelectedEmails([]);
-      setSelectAll(false);
-      setShowMarkMenu(false);
-    } catch (error) {
-      alert('标记失败：' + (error as any).message);
-    }
-  };
-  
-  const handleMarkAsUnread = async () => {
-    if (selectedEmails.length === 0) {
-      alert('请先选择要标记的邮件');
-      return;
-    }
-    try {
-      const realIds = getRealEmailIds();
-      if (realIds.length === 0) {
-        alert('测试数据无法标记，请选择真实数据邮件');
-        setSelectedEmails([]);
-        setSelectAll(false);
-        setShowMarkMenu(false);
-        return;
-      }
-      for (const id of realIds) {
-        await mailApi.markAsRead(Number(id), false);
-      }
-      await loadDeletedEmails();
-      showResultMessage(realIds.length, selectedEmails.length, '标记为未读');
-      setSelectedEmails([]);
-      setSelectAll(false);
-      setShowMarkMenu(false);
-    } catch (error) {
-      alert('标记失败：' + (error as any).message);
-    }
-  };
-  
-  const handleMove = async (folder: string) => {
-    if (selectedEmails.length === 0) {
-      alert('请先选择要移动的邮件');
-      return;
-    }
-    try {
-      const realIds = getRealEmailIds();
-      if (realIds.length === 0) {
-        alert('测试数据无法移动，请选择真实数据邮件');
-        setSelectedEmails([]);
-        setSelectAll(false);
-        setShowMoveMenu(false);
-        return;
-      }
-      for (const id of realIds) {
-        await mailApi.moveToFolder(Number(id), folder);
-      }
-      await loadDeletedEmails();
-      const folderNames: Record<string, string> = {
-        'sent': '已发送',
-        'drafts': '草稿箱',
-        'trash': '已删除',
-        'spam': '垃圾箱'
-      };
-      showResultMessage(realIds.length, selectedEmails.length, `移动到${folderNames[folder] || folder}`);
-      setSelectedEmails([]);
-      setSelectAll(false);
-      setShowMoveMenu(false);
-    } catch (error) {
-      alert('移动失败：' + (error as any).message);
-    }
-  };
-
-  const handleStar = async () => {
-    if (selectedEmails.length === 0) {
-      alert('请先选择要标记为星标的邮件');
-      return;
-    }
-    try {
-      const realIds = getRealEmailIds();
-      if (realIds.length === 0) {
-        alert('测试数据无法标记，请选择真实数据邮件');
-        setSelectedEmails([]);
-        setSelectAll(false);
-        return;
-      }
-      for (const id of realIds) {
-        await mailApi.toggleStar(Number(id));
-      }
-      await loadDeletedEmails();
-      showResultMessage(realIds.length, selectedEmails.length, '标记为星标');
-      setSelectedEmails([]);
-      setSelectAll(false);
-    } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('恢复失败：' + (error as any).message, 'error');
     }
   };
 
@@ -500,108 +344,20 @@ export default function TrashPage() {
             </div>
 
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={handleRestore}
                 className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 恢复
               </button>
-              <button 
+              <button
                 onClick={handleDelete}
                 className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 永久删除
               </button>
-              <button 
-                onClick={handleForward}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
-              >
-                <Forward className="w-3.5 h-3.5" />
-                转发
-              </button>
-              <button 
-                onClick={handleMarkAsRead}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-                全部已读
-              </button>
-              
-              {/* 标记为下拉菜单 */}
-              <div className="relative">
-                <button 
-                  onClick={() => setShowMarkMenu(!showMarkMenu)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
-                >
-                  <Star className="w-3.5 h-3.5" />
-                  标记为
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-                {showMarkMenu && (
-                  <div className="absolute right-0 mt-1 w-32 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
-                    <button
-                      onClick={handleMarkAsRead}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      已读
-                    </button>
-                    <button
-                      onClick={handleMarkAsUnread}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                      未读
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {/* 移动到下菜单 */}
-              <div className="relative">
-                <button 
-                  onClick={() => setShowMoveMenu(!showMoveMenu)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
-                >
-                  <Folder className="w-3.5 h-3.5" />
-                  移动到
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-                {showMoveMenu && (
-                  <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
-                    <button
-                      onClick={() => handleMove('sent')}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Forward className="w-3.5 h-3.5" />
-                      已发送
-                    </button>
-                    <button
-                      onClick={() => handleMove('drafts')}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <List className="w-3.5 h-3.5" />
-                      草稿箱
-                    </button>
-                    <button
-                      onClick={() => handleMove('trash')}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      已删除
-                    </button>
-                    <button
-                      onClick={() => handleMove('spam')}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Shield className="w-3.5 h-3.5" />
-                      垃圾箱
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -625,7 +381,7 @@ export default function TrashPage() {
             {deletedEmails.map((email) => (
               <div
                 key={email.id}
-                onClick={() => handleEmailClick(email.id)}
+                onClick={() => handleEmailClick(email.id, email.isTest)}
                 className="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100"
               >
                 <input

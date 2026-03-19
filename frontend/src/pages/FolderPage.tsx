@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { 
-  Star, 
-  Paperclip, 
-  Trash2, 
-  ChevronDown, 
+import { useToast } from '../contexts/ToastContext';
+import {
+  Star,
+  Paperclip,
+  Trash2,
+  ChevronDown,
   MoreVertical,
   Forward,
   Shield,
@@ -25,6 +26,7 @@ interface Email {
   isRead: boolean;
   isStarred: boolean;
   avatar?: string;
+  isTest?: boolean;
 }
 
 // 国际联盟项目邮件数据
@@ -38,7 +40,8 @@ const intlProjectEmails: Email[] = [
     hasAttachment: true,
     isRead: false,
     isStarred: false,
-    avatar: '刘'
+    avatar: '刘',
+    isTest: true
   },
   {
     id: 2,
@@ -49,7 +52,8 @@ const intlProjectEmails: Email[] = [
     hasAttachment: true,
     isRead: false,
     isStarred: false,
-    avatar: '刘'
+    avatar: '刘',
+    isTest: true
   },
   {
     id: 3,
@@ -60,7 +64,8 @@ const intlProjectEmails: Email[] = [
     hasAttachment: true,
     isRead: false,
     isStarred: false,
-    avatar: '刘'
+    avatar: '刘',
+    isTest: true
   },
   {
     id: 4,
@@ -71,7 +76,8 @@ const intlProjectEmails: Email[] = [
     hasAttachment: true,
     isRead: false,
     isStarred: false,
-    avatar: '刘'
+    avatar: '刘',
+    isTest: true
   },
 ];
 
@@ -86,7 +92,8 @@ const unProjectEmails: Email[] = [
     hasAttachment: true,
     isRead: false,
     isStarred: false,
-    avatar: '诸'
+    avatar: '诸',
+    isTest: true
   },
   {
     id: 102,
@@ -97,7 +104,8 @@ const unProjectEmails: Email[] = [
     hasAttachment: true,
     isRead: false,
     isStarred: false,
-    avatar: '万'
+    avatar: '万',
+    isTest: true
   },
   {
     id: 103,
@@ -108,7 +116,8 @@ const unProjectEmails: Email[] = [
     hasAttachment: true,
     isRead: true,
     isStarred: true,
-    avatar: '张'
+    avatar: '张',
+    isTest: true
   },
   {
     id: 104,
@@ -119,26 +128,33 @@ const unProjectEmails: Email[] = [
     hasAttachment: false,
     isRead: true,
     isStarred: false,
-    avatar: '李'
+    avatar: '李',
+    isTest: true
   },
 ];
 
 export default function FolderPage() {
   const navigate = useNavigate();
   const { folderName } = useParams<{ folderName: string }>();
+  const { showToast } = useToast();
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showFolderDropdown, setShowFolderDropdown] = useState(false);
 
   // 根据文件夹名称获取邮件数据
-  const emails = folderName === 'intl' ? intlProjectEmails : 
+  const emails = folderName === 'intl' ? intlProjectEmails :
                  folderName === 'un' ? unProjectEmails : [];
-  
-  const folderTitle = folderName === 'intl' ? '国际联盟项目' : 
+
+  const folderTitle = folderName === 'intl' ? '国际联盟项目' :
                       folderName === 'un' ? 'UN 集团项目' : '文件夹';
 
-  const handleEmailClick = (emailId: number) => {
-    navigate(`/mail/${emailId}`);
+  const handleEmailClick = (emailId: number, isTest?: boolean) => {
+    if (isTest) {
+      showToast('测试数据仅用于展示，无法查看详情', 'warning');
+      return;
+    }
+    const fromPage = `/folder/${folderName}`;
+    navigate(`/mail/${emailId}`, { state: { from: fromPage } });
   };
 
   const toggleSelect = (id: number) => {
@@ -262,7 +278,7 @@ export default function FolderPage() {
             {emails.map((email) => (
               <div
                 key={email.id}
-                onClick={() => handleEmailClick(email.id)}
+                onClick={() => handleEmailClick(email.id, email.isTest)}
                 className={`px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100 ${
                   !email.isRead ? 'bg-blue-50/50' : ''
                 }`}

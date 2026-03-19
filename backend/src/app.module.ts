@@ -7,7 +7,7 @@ import { AiModule } from './modules/ai/ai.module'
 import { ContactModule } from './modules/contact/contact.module'
 import { FileModule } from './modules/file/file.module'
 import { NotificationModule } from './modules/notification/notification.module'
-import { User, Mail, Contact } from './entities'
+import { User, Mail, Contact, File } from './entities'
 
 @Module({
   imports: [
@@ -23,7 +23,7 @@ import { User, Mail, Contact } from './entities'
       useFactory: (configService: ConfigService) => ({
         type: 'sqlite',
         database: configService.get('DB_DATABASE', 'data/ai_email.db'),
-        entities: [User, Mail, Contact],
+        entities: [User, Mail, Contact, File],
         synchronize: true, // 开发环境自动同步表结构
         logging: configService.get('NODE_ENV') === 'development',
       }),

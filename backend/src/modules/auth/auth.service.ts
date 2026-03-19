@@ -400,4 +400,19 @@ export class AuthService {
       message: '登出成功',
     }
   }
+
+  /**
+   * 获取系统内所有用户
+   */
+  async getAllUsers(currentUserId?: string): Promise<User[]> {
+    const query = this.userRepository.createQueryBuilder('user')
+      .select(['user.id', 'user.phone', 'user.email', 'user.name', 'user.avatar', 'user.department', 'user.company'])
+
+    // 如果传入了当前用户 ID，则排除当前用户
+    if (currentUserId) {
+      query.andWhere('user.id != :currentUserId', { currentUserId })
+    }
+
+    return query.orderBy('user.name', 'ASC').getMany()
+  }
 }

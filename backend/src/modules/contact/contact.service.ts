@@ -1,74 +1,69 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { User } from '../../entities/user.entity'
-
-export interface Contact {
-  id: string
-  name: string
-  email: string
-  phone?: string
-  company?: string
-  tags: string[]
-}
+import { Contact } from '../../entities/contact.entity'
 
 @Injectable()
 export class ContactService {
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>
+    @InjectRepository(Contact)
+    private contactRepository: Repository<Contact>
   ) {}
 
   async getContacts(user: any) {
-    // 从数据库获取所有用户（排除当前用户）
-    const users = await this.userRepository.find({
-      select: ['id', 'name', 'email', 'phone']
+    const contacts = await this.contactRepository.find({
+      where: { userId: user.userId },
+      order: { createdAt: 'DESC' }
     })
-    
-    // 转换为用户联系人格式
-    return users.map(u => ({
-      id: u.id,
-      name: u.name || '未知用户',
-      email: u.email || `${u.phone}@example.com`,
-      phone: u.phone,
-      company: u.company,
-      tags: []
-    }))
+    return contacts
   }
 
-  async getContactById(id: string) {
-    const user = await this.userRepository.findOne({ where: { id } })
-    if (!user) return null
-    
-    return {
-      id: user.id,
-      name: user.name || '未知用户',
-      email: user.email || `${user.phone}@example.com`,
-      phone: user.phone,
-      company: user.company,
-      tags: []
-    }
-  }
-
-  async createContact(data: Partial<Contact>) {
-    const contact: Contact = {
-      id: Date.now().toString(),
-      name: data.name || '',
-      email: data.email || '',
-      phone: data.phone,
-      company: data.company,
-      tags: data.tags || [],
+  async getContactById(userId: string, id: string) {
+    const contact = await this.contactRepository.findOne({
+      where: { id, userId }
+    })
+    if (!contact) {
+      throw new NotFoundException('联系人不存在')
     }
     return contact
   }
 
-  async updateContact(id: string, data: Partial<Contact>) {
-    console.log('Update contact:', id, data)
-    return { success: true }
+  async createContact(userId: string, data: Partial<Contact>) {
+    const contact = this.contactRepository.create({
+      userId,
+      name: data.name || '',
+      email: data.email || '',
+      phone: data.phone,
+      company: data.company,
+      position: data.position,
+      tags: data.tags || [],
+      avatar: data.avatar,
+      notes: data.notes,
+      type: data.type || 'personal'
+    })
+    return await this.contactRepository.save(contact)
   }
 
-  async deleteContact(id: string) {
-    console.log('Delete contact:', id)
-    return { success: true }
+  async updateContact(userId: string, id: string, data: Partial<Contact>) {
+    const contact = await this.getContactById(userId, id)
+
+    // 更新字段
+    if (data.name !== undefined) contact.name = data.name
+    if (data.email !== undefined) contact.email = data.email
+    if (data.phone !== undefined) contact.phone = data.phone
+    if (data.company !== undefined) contact.company = data.company
+    if (data.position !== undefined) contact.position = data.position
+    if (data.tags !== undefined) contact.tags = data.tags
+    if (data.avatar !== undefined) contact.avatar = data.avatar
+    if (data.notes !== undefined) contact.notes = data.notes
+    if (data.type !== undefined) contact.type = data.type
+
+    return await this.contactRepository.save(contact)
+  }
+
+  async deleteContact(userId: string, id: string) {
+    const contact = await this.getContactById(userId, id)
+    await this.contactRepository.remove(contact)
+    return { success: true, message: '联系人已删除' }
   }
 }

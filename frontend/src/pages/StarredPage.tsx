@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Star, 
-  Paperclip, 
-  Trash2, 
-  ChevronDown, 
+import {
+  Star,
+  Paperclip,
+  Trash2,
+  ChevronDown,
   MoreVertical,
   Forward,
   Shield,
@@ -16,6 +16,7 @@ import {
   Folder
 } from 'lucide-react';
 import { mailApi } from '../api/mail';
+import { useToast } from '../contexts/ToastContext';
 
 interface Email {
   id: number | string;
@@ -89,7 +90,8 @@ const mockStarredEmails: Email[] = [
 
 export default function StarredPage() {
   const navigate = useNavigate();
-  const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
+  const { showToast, showConfirm } = useToast();
+  const [selectedEmails, setSelectedEmails] = useState<(number | string)[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [starredEmails, setStarredEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(false);
@@ -195,7 +197,7 @@ export default function StarredPage() {
   const showResultMessage = (realCount: number, totalCount: number, action: string) => {
     const testCount = totalCount - realCount;
     let message = '';
-    
+
     if (realCount > 0 && testCount > 0) {
       message = `已${action} ${realCount} 封真实邮件（测试数据无法${action}）`;
     } else if (realCount > 0) {
@@ -203,12 +205,16 @@ export default function StarredPage() {
     } else {
       message = `测试数据无法${action}，请选择真实数据邮件`;
     }
-    
-    alert(message);
+
+    showToast(message, realCount > 0 ? 'success' : 'warning');
   };
 
-  const handleEmailClick = (emailId: number | string) => {
-    navigate(`/mail/${emailId}`);
+  const handleEmailClick = (emailId: number | string, isTest?: boolean) => {
+    if (isTest) {
+      showToast('测试数据仅用于展示，无法查看详情', 'warning');
+      return;
+    }
+    navigate(`/mail/${emailId}`, { state: { from: '/starred' } });
   };
 
   const toggleSelect = (id: number | string) => {
@@ -228,78 +234,76 @@ export default function StarredPage() {
   
   const handleDelete = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要删除的邮件');
+      showToast('请先选择要删除的邮件', 'warning');
       return;
     }
-    const confirmed = window.confirm(`确定要删除选中的 ${selectedEmails.length} 封邮件吗？`);
+    const confirmed = await showConfirm({
+      title: '确认删除',
+      message: `确定要删除选中的 ${selectedEmails.length} 封邮件吗？`,
+      confirmText: '删除',
+      type: 'danger'
+    });
     if (confirmed) {
       try {
         const realIds = getRealEmailIds();
         for (const id of realIds) {
-          await mailApi.delete(Number(id));
+          await mailApi.deleteMail(id);
         }
         await loadStarredEmails();
         showResultMessage(realIds.length, selectedEmails.length, '删除');
         setSelectedEmails([]);
         setSelectAll(false);
       } catch (error) {
-        alert('删除失败：' + (error as any).message);
+        showToast('删除失败：' + (error as any).message, 'error');
       }
     }
   };
   
   const handleForward = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要转发的邮件');
+      showToast('请先选择要转发的邮件', 'warning');
       return;
     }
-    const recipient = window.prompt('请输入收件人邮箱：');
-    if (recipient) {
-      try {
-        const realIds = getRealEmailIds();
-        for (const id of realIds) {
-          await mailApi.forward(Number(id), recipient);
-        }
-        alert(`已转发 ${realIds.length} 封邮件给 ${recipient}`);
-        setSelectedEmails([]);
-        setSelectAll(false);
-      } catch (error) {
-        alert('转发失败：' + (error as any).message);
-      }
-    }
+    // 转发功能跳转到写信页面
+    navigate('/compose');
   };
   
   const handleSpam = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记为垃圾邮件的邮件');
+      showToast('请先选择要标记为垃圾邮件的邮件', 'warning');
       return;
     }
-    const confirmed = window.confirm(`确定要将选中的 ${selectedEmails.length} 封邮件标记为垃圾邮件吗？`);
+    const confirmed = await showConfirm({
+      title: '标记为垃圾邮件',
+      message: `确定要将选中的 ${selectedEmails.length} 封邮件标记为垃圾邮件吗？`,
+      confirmText: '确定',
+      type: 'warning'
+    });
     if (confirmed) {
       try {
         const realIds = getRealEmailIds();
         for (const id of realIds) {
-          await mailApi.moveToFolder(Number(id), 'spam');
+          await mailApi.moveToFolder(id, 'spam');
         }
         await loadStarredEmails();
         showResultMessage(realIds.length, selectedEmails.length, '标记为垃圾邮件');
         setSelectedEmails([]);
         setSelectAll(false);
       } catch (error) {
-        alert('标记失败：' + (error as any).message);
+        showToast('标记失败：' + (error as any).message, 'error');
       }
     }
   };
   
   const handleMarkAsRead = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记的邮件');
+      showToast('请先选择要标记的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.markAsRead(Number(id), true);
+        await mailApi.markAsRead(id, true);
       }
       await loadStarredEmails();
       showResultMessage(realIds.length, selectedEmails.length, '标记为已读');
@@ -307,58 +311,73 @@ export default function StarredPage() {
       setSelectAll(false);
       setShowMarkMenu(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
     }
   };
   
   const handleMarkAsUnread = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记的邮件');
+      showToast('请先选择要标记的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.markAsRead(Number(id), false);
+        await mailApi.markAsRead(id, false);
       }
       await loadStarredEmails();
       showResultMessage(realIds.length, selectedEmails.length, '标记为未读');
       setSelectedEmails([]);
       setSelectAll(false);
-      setShowMarkMenu(false);
+      setShowMoveMenu(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
     }
   };
   
   const handleUnstar = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要取消星标的邮件');
+      showToast('请先选择要取消星标的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.toggleStar(Number(id));
+        await mailApi.toggleStar(id);
       }
       await loadStarredEmails();
       showResultMessage(realIds.length, selectedEmails.length, '取消星标');
       setSelectedEmails([]);
       setSelectAll(false);
     } catch (error) {
-      alert('操作失败：' + (error as any).message);
+      showToast('操作失败：' + (error as any).message, 'error');
+    }
+  };
+
+  // 单个邮件取消星标
+  const handleUnstarSingle = async (emailId: number | string, isTest?: boolean) => {
+    if (isTest) {
+      showToast('测试数据无法修改', 'warning');
+      return;
+    }
+    try {
+      await mailApi.toggleStar(emailId);
+      await loadStarredEmails();
+      showToast('已取消星标', 'success');
+    } catch (error) {
+      showToast('操作失败：' + (error as any).message, 'error');
     }
   };
   
   const handleMove = async (folder: string) => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要移动的邮件');
+      showToast('请先选择要移动的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.moveToFolder(Number(id), folder);
+        await mailApi.moveToFolder(id, folder);
       }
       await loadStarredEmails();
       const folderNames: Record<string, string> = {
@@ -372,7 +391,7 @@ export default function StarredPage() {
       setSelectAll(false);
       setShowMoveMenu(false);
     } catch (error) {
-      alert('移动失败：' + (error as any).message);
+      showToast('移动失败：' + (error as any).message, 'error');
     }
   };
   
@@ -565,7 +584,7 @@ export default function StarredPage() {
             {starredEmails.map((email) => (
               <div
                 key={email.id}
-                onClick={() => handleEmailClick(email.id)}
+                onClick={() => handleEmailClick(email.id, email.isTest)}
                 className={`px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100 ${
                   !email.isRead ? 'bg-blue-50/50' : ''
                 }`}
@@ -608,7 +627,7 @@ export default function StarredPage() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleUnstar();
+                    handleUnstarSingle(email.id, email.isTest);
                   }}
                   className="p-1 hover:bg-slate-100 rounded"
                   title="取消星标"

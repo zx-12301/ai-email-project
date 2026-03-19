@@ -1,7 +1,30 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs wc:*)"
+      "Bash(xargs wc:*)",
+      "Bash(npm run build)",
+      "Bash(cd /d C:Users17816Desktopai-email-projectbackend)",
+      "Bash(npm run:*)",
+      "Read(//d C:/Users/17816/Desktop/**)",
+      "Bash(npm list:*)",
+      "Bash(npx tsc:*)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3001)",
+      "Bash(taskkill:*)",
+      "Bash(wsl taskkill:*)",
+      "Bash(powershell \"Stop-Process -Id 23984 -Force\")",
+      "Bash(curl -s http://localhost:3001/health)",
+      "Bash(sqlite3:*)",
+      "Bash(node:*)",
+      "Bash(find . -name *.db)",
+      "Bash(curl -s http://localhost:3001/api/mail/sent -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\")",
+      "Bash(powershell \"Stop-Process -Id 27540 -Force\")",
+      "Bash(curl -s http://localhost:3001/api/auth/users)",
+      "Bash(curl -s http://localhost:3001/api/mail/inbox -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwaG9uZSI6IjE3NTQ3NTE3Nzg4IiwiZXhwIjo5OTk5OTk5OTk5fQ.test\")",
+      "Bash(ls -la /c/Users/17816/AppData/Local/Temp/claude/C--Users-17816-Desktop-ai-email-project/9d0101ae-e2a0-4abd-a503-287355317895/tasks/*.output)",
+      "Bash(curl -s \"http://localhost:3001/api/mail/spam?page=1&limit=20\")",
+      "Bash(curl -s \"http://localhost:3001/api/mail/spam?page=1&limit=20\" -H \"Authorization: Bearer test\")",
+      "Bash(curl -s \"http://localhost:3001/api/mail/trash?page=1&limit=20\")"
     ]
   }
 }

@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { ToastProvider } from './contexts/ToastContext'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -27,40 +28,42 @@ import MailLayout from './components/MailLayout'
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* 认证页面 */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        
-        {/* 邮件主布局 */}
-        <Route path="/" element={<MailLayout />}>
-          <Route index element={<Navigate to="/inbox" replace />} />
-          <Route path="inbox" element={<InboxPage />} />
-          <Route path="starred" element={<StarredPage />} />
-          <Route path="contacts-mail" element={<ContactsMailPage />} />
-          <Route path="compose" element={<ComposePage />} />
-          <Route path="reply" element={<ReplyPage />} />
-          <Route path="mail/:mailId" element={<MailDetailPage />} />
-          <Route path="folder/:folderName" element={<FolderPage />} />
-          <Route path="sent" element={<SentPage />} />
-          <Route path="drafts" element={<DraftsPage />} />
-          <Route path="trash" element={<TrashPage />} />
-          <Route path="spam" element={<SpamPage />} />
-          <Route path="contacts" element={<ContactsPage />} />
-          <Route path="group-mail" element={<GroupMailPage />} />
-          <Route path="files" element={<FileCenter />} />
-          <Route path="attachments" element={<AttachmentsPage />} />
-          <Route path="invoice" element={<InvoicePage />} />
-          <Route path="mobile" element={<MobileAppPage />} />
-          <Route path="download" element={<DownloadPage />} />
-          <Route path="help" element={<HelpPage />} />
-          <Route path="ai-tools" element={<AIToolsPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* 认证页面 */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+          {/* 邮件主布局 */}
+          <Route path="/" element={<MailLayout />}>
+            <Route index element={<Navigate to="/inbox" replace />} />
+            <Route path="inbox" element={<InboxPage />} />
+            <Route path="starred" element={<StarredPage />} />
+            <Route path="contacts-mail" element={<ContactsMailPage />} />
+            <Route path="compose" element={<ComposePage />} />
+            <Route path="reply" element={<ReplyPage />} />
+            <Route path="mail/:mailId" element={<MailDetailPage />} />
+            <Route path="folder/:folderName" element={<FolderPage />} />
+            <Route path="sent" element={<SentPage />} />
+            <Route path="drafts" element={<DraftsPage />} />
+            <Route path="trash" element={<TrashPage />} />
+            <Route path="spam" element={<SpamPage />} />
+            <Route path="contacts" element={<ContactsPage />} />
+            <Route path="group-mail" element={<GroupMailPage />} />
+            <Route path="files" element={<FileCenter />} />
+            <Route path="attachments" element={<AttachmentsPage />} />
+            <Route path="invoice" element={<InvoicePage />} />
+            <Route path="mobile" element={<MobileAppPage />} />
+            <Route path="download" element={<DownloadPage />} />
+            <Route path="help" element={<HelpPage />} />
+            <Route path="ai-tools" element={<AIToolsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
   )
 }
 

@@ -32,6 +32,7 @@ import NotificationPanel from './NotificationPanel'
 import NotificationToast from './NotificationToast'
 import { NotificationService } from '../services/NotificationService'
 import { authApi } from '../api'
+import { mailApi } from '../api/mail'
 
 export default function MailLayout() {
   const location = useLocation()
@@ -42,6 +43,7 @@ export default function MailLayout() {
   const [showNotification, setShowNotification] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [inboxCount, setInboxCount] = useState<number>(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const userDropdownRef = useRef<HTMLDivElement>(null)
   
@@ -99,8 +101,20 @@ export default function MailLayout() {
   useEffect(() => {
     if (!loading && currentUser) {
       // 用户信息已在 checkAuth 中获取
+      // 获取收件箱未读数量
+      loadInboxCount()
     }
   }, [loading, currentUser])
+
+  // 获取收件箱未读数量
+  const loadInboxCount = async () => {
+    try {
+      const result = await mailApi.getUnreadCount()
+      setInboxCount(result.count || 0)
+    } catch (error) {
+      console.error('获取收件箱数量失败:', error)
+    }
+  }
 
   // 连接 WebSocket 通知
   useEffect(() => {
@@ -183,7 +197,7 @@ export default function MailLayout() {
   const currentFolder = getCurrentFolder()
 
   const navItems = [
-    { path: '/inbox', icon: Inbox, label: '收件箱', count: 5 },
+    { path: '/inbox', icon: Inbox, label: '收件箱', count: inboxCount },
     { path: '/starred', icon: Star, label: '星标邮件' },
     { path: '/contacts-mail', icon: Users, label: '星标联系人邮件' },
     { path: '/group-mail', icon: MessageSquare, label: '群邮件' },

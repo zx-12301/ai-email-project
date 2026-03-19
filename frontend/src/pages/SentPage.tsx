@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Star, 
-  Paperclip, 
-  Trash2, 
-  ChevronDown, 
+import {
+  Star,
+  Paperclip,
+  Trash2,
+  ChevronDown,
   MoreVertical,
   Forward,
   Shield,
@@ -21,6 +21,7 @@ import {
   Folder
 } from 'lucide-react';
 import { mailApi } from '../api/mail';
+import { useToast } from '../contexts/ToastContext';
 
 interface Email {
   id: number | string;
@@ -62,7 +63,8 @@ const mockSentEmails: Email[] = [
 
 export default function SentPage() {
   const navigate = useNavigate();
-  const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
+  const { showToast, showConfirm } = useToast();
+  const [selectedEmails, setSelectedEmails] = useState<(number | string)[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [sentEmails, setSentEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(false);
@@ -146,7 +148,7 @@ export default function SentPage() {
   const showResultMessage = (realCount: number, totalCount: number, action: string) => {
     const testCount = totalCount - realCount;
     let message = '';
-    
+
     if (realCount > 0 && testCount > 0) {
       message = `已${action} ${realCount} 封真实邮件（测试数据无法${action}）`;
     } else if (realCount > 0) {
@@ -156,8 +158,8 @@ export default function SentPage() {
     } else {
       message = `请先选择要${action}的邮件`;
     }
-    
-    alert(message);
+
+    showToast(message, realCount > 0 ? 'success' : 'warning');
   };
   
   // 分页控制函数
@@ -199,8 +201,12 @@ export default function SentPage() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  const handleEmailClick = (emailId: number | string) => {
-    navigate(`/mail/${emailId}`);
+  const handleEmailClick = (emailId: number | string, isTest?: boolean) => {
+    if (isTest) {
+      showToast('测试数据仅用于展示，无法查看详情', 'warning');
+      return;
+    }
+    navigate(`/mail/${emailId}`, { state: { from: '/sent' } });
   };
 
   const toggleSelect = (id: number | string) => {
@@ -220,96 +226,88 @@ export default function SentPage() {
   
   const handleDelete = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要删除的邮件');
+      showToast('请先选择要删除的邮件', 'warning');
       return;
     }
-    const confirmed = window.confirm(`确定要删除选中的 ${selectedEmails.length} 封邮件吗？`);
+    const confirmed = await showConfirm({
+      title: '确认删除',
+      message: `确定要删除选中的 ${selectedEmails.length} 封邮件吗？`,
+      confirmText: '删除',
+      type: 'danger'
+    });
     if (confirmed) {
       try {
         const realIds = getRealEmailIds();
         if (realIds.length === 0) {
-          alert('测试数据无法删除，请选择真实数据邮件');
+          showToast('测试数据无法删除，请选择真实数据邮件', 'warning');
           setSelectedEmails([]);
           setSelectAll(false);
           return;
         }
         for (const id of realIds) {
-          await mailApi.delete(Number(id));
+          await mailApi.deleteMail(id);
         }
         await loadSentEmails();
         showResultMessage(realIds.length, selectedEmails.length, '删除');
         setSelectedEmails([]);
         setSelectAll(false);
       } catch (error) {
-        alert('删除失败：' + (error as any).message);
+        showToast('删除失败：' + (error as any).message, 'error');
       }
     }
   };
   
   const handleForward = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要转发的邮件');
+      showToast('请先选择要转发的邮件', 'warning');
       return;
     }
-    const recipient = window.prompt('请输入收件人邮箱：');
-    if (recipient) {
-      const realIds = getRealEmailIds();
-      if (realIds.length === 0) {
-        alert('测试数据无法转发，请选择真实数据邮件');
-        setSelectedEmails([]);
-        setSelectAll(false);
-        return;
-      }
-      try {
-        for (const id of realIds) {
-          await mailApi.forward(Number(id), recipient);
-        }
-        alert(`已转发 ${realIds.length} 封邮件给 ${recipient}`);
-        setSelectedEmails([]);
-        setSelectAll(false);
-      } catch (error) {
-        alert('转发失败：' + (error as any).message);
-      }
-    }
+    // 转发功能跳转到写信页面
+    navigate('/compose');
   };
   
   const handleSpam = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记为垃圾邮件的邮件');
+      showToast('请先选择要标记为垃圾邮件的邮件', 'warning');
       return;
     }
-    const confirmed = window.confirm(`确定要将选中的 ${selectedEmails.length} 封邮件标记为垃圾邮件吗？`);
+    const confirmed = await showConfirm({
+      title: '标记为垃圾邮件',
+      message: `确定要将选中的 ${selectedEmails.length} 封邮件标记为垃圾邮件吗？`,
+      confirmText: '确定',
+      type: 'warning'
+    });
     if (confirmed) {
       const realIds = getRealEmailIds();
       if (realIds.length === 0) {
-        alert('测试数据无法标记，请选择真实数据邮件');
+        showToast('测试数据无法标记，请选择真实数据邮件', 'warning');
         setSelectedEmails([]);
         setSelectAll(false);
         return;
       }
       try {
         for (const id of realIds) {
-          await mailApi.moveToFolder(Number(id), 'spam');
+          await mailApi.moveToFolder(id, 'spam');
         }
         await loadSentEmails();
         showResultMessage(realIds.length, selectedEmails.length, '标记为垃圾邮件');
         setSelectedEmails([]);
         setSelectAll(false);
       } catch (error) {
-        alert('标记失败：' + (error as any).message);
+        showToast('标记失败：' + (error as any).message, 'error');
       }
     }
   };
   
   const handleMarkAsRead = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记的邮件');
+      showToast('请先选择要标记的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.markAsRead(Number(id), true);
+        await mailApi.markAsRead(id, true);
       }
       await loadSentEmails();
       showResultMessage(realIds.length, selectedEmails.length, '标记为已读');
@@ -317,19 +315,19 @@ export default function SentPage() {
       setSelectAll(false);
       setShowMarkMenu(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
     }
   };
   
   const handleMarkAsUnread = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记的邮件');
+      showToast('请先选择要标记的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.markAsRead(Number(id), false);
+        await mailApi.markAsRead(id, false);
       }
       await loadSentEmails();
       showResultMessage(realIds.length, selectedEmails.length, '标记为未读');
@@ -337,57 +335,57 @@ export default function SentPage() {
       setSelectAll(false);
       setShowMarkMenu(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
     }
   };
   
   const handleStar = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记为星标的邮件');
+      showToast('请先选择要标记为星标的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.toggleStar(Number(id));
+        await mailApi.toggleStar(id);
       }
       await loadSentEmails();
       showResultMessage(realIds.length, selectedEmails.length, '标记为星标');
       setSelectedEmails([]);
       setSelectAll(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
     }
   };
   
   const handleArchive = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要归档的邮件');
+      showToast('请先选择要归档的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.archive(Number(id));
+        await mailApi.archive(id);
       }
       await loadSentEmails();
       showResultMessage(realIds.length, selectedEmails.length, '归档');
       setSelectedEmails([]);
       setSelectAll(false);
     } catch (error) {
-      alert('归档失败：' + (error as any).message);
+      showToast('归档失败：' + (error as any).message, 'error');
     }
   };
   
   const handleMove = async (folder: string) => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要移动的邮件');
+      showToast('请先选择要移动的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.moveToFolder(Number(id), folder);
+        await mailApi.moveToFolder(id, folder);
       }
       await loadSentEmails();
       const folderNames: Record<string, string> = {
@@ -401,7 +399,7 @@ export default function SentPage() {
       setSelectAll(false);
       setShowMoveMenu(false);
     } catch (error) {
-      alert('移动失败：' + (error as any).message);
+      showToast('移动失败：' + (error as any).message, 'error');
     }
   };
 
@@ -583,7 +581,7 @@ export default function SentPage() {
             {sentEmails.map((email) => (
               <div
                 key={email.id}
-                onClick={() => handleEmailClick(email.id)}
+                onClick={() => handleEmailClick(email.id, email.isTest)}
                 className="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100"
               >
                 <input
@@ -602,8 +600,8 @@ export default function SentPage() {
                   <Mail className="w-5 h-5 text-slate-300" />
                 </div>
 
-                <div className="w-32 flex-shrink-0">
-                  <span className="text-sm text-slate-600 truncate">
+                <div className="w-32 flex-shrink-0 max-w-full overflow-hidden">
+                  <span className="text-sm text-slate-600 truncate block" title={email.to}>
                     {email.to}
                   </span>
                 </div>

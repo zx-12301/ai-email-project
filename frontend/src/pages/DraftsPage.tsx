@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import PageToolbar from '../components/PageToolbar';
 import { mailApi } from '../api/mail';
+import { useToast } from '../contexts/ToastContext';
 
 interface Draft {
   id: number | string;
@@ -32,37 +33,10 @@ interface Draft {
   isTest?: boolean;
 }
 
-// 草稿测试数据
-const mockDrafts: Draft[] = [
-  {
-    id: 'test-1',
-    subject: '关于召开产品评审会的通知',
-    content: '各位同事，大家好！定于本周五下午 2 点召开产品评审会...',
-    date: '11 月 26 日',
-    size: '12KB',
-    isTest: true
-  },
-  {
-    id: 'test-2',
-    subject: '2024 年度工作总结报告',
-    content: '尊敬的领导：现将本部门 2024 年度工作情况总结如下...',
-    date: '11 月 25 日',
-    size: '28KB',
-    isTest: true
-  },
-  {
-    id: 'test-3',
-    subject: '',
-    content: '李总，您好！关于上次会议讨论的合作事宜...',
-    date: '11 月 24 日',
-    size: '5KB',
-    isTest: true
-  },
-];
-
 export default function DraftsPage() {
   const navigate = useNavigate();
-  const [selectedDrafts, setSelectedDrafts] = useState<number[]>([]);
+  const { showToast, showConfirm } = useToast();
+  const [selectedDrafts, setSelectedDrafts] = useState<(number | string)[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [loading, setLoading] = useState(false);
@@ -84,7 +58,7 @@ export default function DraftsPage() {
       setLoading(true);
       const result = await mailApi.getDrafts(currentPage, pageSize);
       const draftList = Array.isArray(result.data) ? result.data : (result as any[]);
-      
+
       const transformedDrafts: Draft[] = draftList.map((draft: any) => ({
         id: draft.id,
         subject: draft.subject || '(无主题)',
@@ -92,20 +66,15 @@ export default function DraftsPage() {
         date: formatDate(draft.updatedAt || draft.createdAt),
         size: formatSize(draft.content.length),
         hasAttachment: draft.attachments && draft.attachments.length > 0,
-        isTest: false,
+        isTest: draft.isTest || false,  // 保留后端的 isTest 标记
       }));
-      
-      // 合并测试数据和真实数据（只在第一页显示测试数据）
-      const allDrafts = currentPage === 1 ? [...mockDrafts, ...transformedDrafts] : transformedDrafts;
-      setDrafts(allDrafts);
-      setTotalDrafts(result.total ? result.total + (currentPage === 1 ? mockDrafts.length : 0) : allDrafts.length);
+
+      setDrafts(transformedDrafts);
+      setTotalDrafts(result.total || transformedDrafts.length);
     } catch (error) {
       console.error('加载草稿失败:', error);
-      // API 失败时显示测试数据
-      if (currentPage === 1) {
-        setDrafts(mockDrafts);
-        setTotalDrafts(mockDrafts.length);
-      }
+      setDrafts([]);
+      setTotalDrafts(0);
     } finally {
       setLoading(false);
     }
@@ -134,8 +103,8 @@ export default function DraftsPage() {
   };
   
   // 获取选中的真实数据 ID
-  const getRealDraftIds = () => {
-    return selectedDrafts.filter(id => 
+  const getRealDraftIds = (): (number | string)[] => {
+    return selectedDrafts.filter(id =>
       drafts.some(draft => String(draft.id) === String(id) && !draft.isTest)
     );
   };
@@ -144,7 +113,7 @@ export default function DraftsPage() {
   const showResultMessage = (realCount: number, totalCount: number, action: string) => {
     const testCount = totalCount - realCount;
     let message = '';
-    
+
     if (realCount > 0 && testCount > 0) {
       message = `已${action} ${realCount} 封真实草稿（测试数据无法${action}）`;
     } else if (realCount > 0) {
@@ -154,8 +123,8 @@ export default function DraftsPage() {
     } else {
       message = `请先选择要${action}的草稿`;
     }
-    
-    alert(message);
+
+    showToast(message, realCount > 0 ? 'success' : 'warning');
   };
   
   // 分页控制函数
@@ -198,6 +167,14 @@ export default function DraftsPage() {
   }, []);
 
   const handleDraftClick = (draftId: number | string) => {
+    // 检查是否是测试数据
+    const draft = drafts.find(d => String(d.id) === String(draftId));
+    if (draft?.isTest) {
+      // 测试数据无法查看详情，提示用户
+      showToast('测试数据仅用于展示，无法查看详情', 'warning');
+      return;
+    }
+    // 真实数据跳转到写信页面编辑草稿
     navigate(`/compose?draft=${draftId}`);
   };
 
@@ -218,68 +195,73 @@ export default function DraftsPage() {
   
   const handleDelete = async () => {
     if (selectedDrafts.length === 0) {
-      alert('请先选择要删除的草稿');
+      showToast('请先选择要删除的草稿', 'warning');
       return;
     }
-    const confirmed = window.confirm(`确定要删除选中的 ${selectedDrafts.length} 封草稿吗？`);
+    const confirmed = await showConfirm({
+      title: '确认删除',
+      message: `确定要删除选中的 ${selectedDrafts.length} 封草稿吗？`,
+      confirmText: '删除',
+      type: 'danger'
+    });
     if (confirmed) {
       const realIds = getRealDraftIds();
       if (realIds.length === 0) {
-        alert('测试数据无法删除，请选择真实数据草稿');
+        showToast('测试数据无法删除，请选择真实数据草稿', 'warning');
         setSelectedDrafts([]);
         setSelectAll(false);
         return;
       }
       try {
         for (const id of realIds) {
-          await mailApi.delete(Number(id));
+          await mailApi.deleteMail(id);
         }
         await loadDrafts();
         showResultMessage(realIds.length, selectedDrafts.length, '删除');
         setSelectedDrafts([]);
         setSelectAll(false);
       } catch (error) {
-        alert('删除失败：' + (error as any).message);
+        showToast('删除失败：' + (error as any).message, 'error');
       }
     }
   };
   
   const handleForward = async () => {
     if (selectedDrafts.length === 0) {
-      alert('请先选择要转发的草稿');
+      showToast('请先选择要转发的草稿', 'warning');
       return;
     }
     const recipient = window.prompt('请输入收件人邮箱：');
     if (recipient) {
       const realIds = getRealDraftIds();
       if (realIds.length === 0) {
-        alert('测试数据无法转发，请选择真实数据草稿');
+        showToast('测试数据无法转发，请选择真实数据草稿', 'warning');
         setSelectedDrafts([]);
         setSelectAll(false);
         return;
       }
       try {
         for (const id of realIds) {
-          await mailApi.forward(Number(id), recipient);
+          await mailApi.forward(String(id), recipient);
         }
-        alert(`已转发 ${realIds.length} 封草稿给 ${recipient}`);
+        showToast(`已转发 ${realIds.length} 封草稿给 ${recipient}`, 'success');
         setSelectedDrafts([]);
         setSelectAll(false);
       } catch (error) {
-        alert('转发失败：' + (error as any).message);
+        showToast('转发失败：' + (error as any).message, 'error');
       }
     }
   };
   
   const handleMarkAsRead = async () => {
     if (selectedDrafts.length === 0) {
-      alert('请先选择要标记的草稿');
+      showToast('请先选择要标记的草稿', 'warning');
       return;
     }
     try {
       const realIds = getRealDraftIds();
       if (realIds.length === 0) {
-        alert('测试数据无法标记，请选择真实数据草稿');
+        showToast('测试数据无法标记，请选择真实数据草稿', 'warning');
         setSelectedDrafts([]);
         setSelectAll(false);
         setShowMarkMenu(false);
@@ -294,19 +276,19 @@ export default function DraftsPage() {
       setSelectAll(false);
       setShowMarkMenu(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
     }
   };
   
   const handleMarkAsUnread = async () => {
     if (selectedDrafts.length === 0) {
-      alert('请先选择要标记的草稿');
+      showToast('请先选择要标记的草稿', 'warning');
       return;
     }
     try {
       const realIds = getRealDraftIds();
       if (realIds.length === 0) {
-        alert('测试数据无法标记，请选择真实数据草稿');
+        showToast('测试数据无法标记，请选择真实数据草稿', 'warning');
         setSelectedDrafts([]);
         setSelectAll(false);
         setShowMarkMenu(false);
@@ -321,19 +303,19 @@ export default function DraftsPage() {
       setSelectAll(false);
       setShowMarkMenu(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
     }
   };
   
   const handleStar = async () => {
     if (selectedDrafts.length === 0) {
-      alert('请先选择要标记为星标的草稿');
+      showToast('请先选择要标记为星标的草稿', 'warning');
       return;
     }
     try {
       const realIds = getRealDraftIds();
       if (realIds.length === 0) {
-        alert('测试数据无法标记，请选择真实数据草稿');
+        showToast('测试数据无法标记，请选择真实数据草稿', 'warning');
         setSelectedDrafts([]);
         setSelectAll(false);
         return;
@@ -346,19 +328,19 @@ export default function DraftsPage() {
       setSelectedDrafts([]);
       setSelectAll(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
     }
   };
   
   const handleArchive = async () => {
     if (selectedDrafts.length === 0) {
-      alert('请先选择要归档的草稿');
+      showToast('请先选择要归档的草稿', 'warning');
       return;
     }
     try {
       const realIds = getRealDraftIds();
       if (realIds.length === 0) {
-        alert('测试数据无法归档，请选择真实数据草稿');
+        showToast('测试数据无法归档，请选择真实数据草稿', 'warning');
         setSelectedDrafts([]);
         setSelectAll(false);
         return;
@@ -371,19 +353,19 @@ export default function DraftsPage() {
       setSelectedDrafts([]);
       setSelectAll(false);
     } catch (error) {
-      alert('归档失败：' + (error as any).message);
+      showToast('归档失败：' + (error as any).message, 'error');
     }
   };
   
   const handleMove = async (folder: string) => {
     if (selectedDrafts.length === 0) {
-      alert('请先选择要移动的草稿');
+      showToast('请先选择要移动的草稿', 'warning');
       return;
     }
     try {
       const realIds = getRealDraftIds();
       if (realIds.length === 0) {
-        alert('测试数据无法移动，请选择真实数据草稿');
+        showToast('测试数据无法移动，请选择真实数据草稿', 'warning');
         setSelectedDrafts([]);
         setSelectAll(false);
         setShowMoveMenu(false);
@@ -404,7 +386,7 @@ export default function DraftsPage() {
       setSelectAll(false);
       setShowMoveMenu(false);
     } catch (error) {
-      alert('移动失败：' + (error as any).message);
+      showToast('移动失败：' + (error as any).message, 'error');
     }
   };
 
@@ -461,101 +443,13 @@ export default function DraftsPage() {
             </div>
 
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={handleDelete}
                 className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 删除
               </button>
-              <button 
-                onClick={handleForward}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
-              >
-                <Forward className="w-3.5 h-3.5" />
-                转发
-              </button>
-              <button 
-                onClick={handleMarkAsRead}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
-              >
-                <CheckCircle className="w-3.5 h-3.5" />
-                全部已读
-              </button>
-              
-              {/* 标记为下拉菜单 */}
-              <div className="relative">
-                <button 
-                  onClick={() => setShowMarkMenu(!showMarkMenu)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
-                >
-                  <Star className="w-3.5 h-3.5" />
-                  标记为
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-                {showMarkMenu && (
-                  <div className="absolute right-0 mt-1 w-32 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
-                    <button
-                      onClick={handleMarkAsRead}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      已读
-                    </button>
-                    <button
-                      onClick={handleMarkAsUnread}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                      未读
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {/* 移动到下菜单 */}
-              <div className="relative">
-                <button 
-                  onClick={() => setShowMoveMenu(!showMoveMenu)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded transition-colors"
-                >
-                  <Folder className="w-3.5 h-3.5" />
-                  移动到
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-                {showMoveMenu && (
-                  <div className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg z-50">
-                    <button
-                      onClick={() => handleMove('sent')}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Forward className="w-3.5 h-3.5" />
-                      已发送
-                    </button>
-                    <button
-                      onClick={() => handleMove('drafts')}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <List className="w-3.5 h-3.5" />
-                      草稿箱
-                    </button>
-                    <button
-                      onClick={() => handleMove('trash')}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      已删除
-                    </button>
-                    <button
-                      onClick={() => handleMove('spam')}
-                      className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <Shield className="w-3.5 h-3.5" />
-                      垃圾箱
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
 
             <div className="flex items-center gap-2">

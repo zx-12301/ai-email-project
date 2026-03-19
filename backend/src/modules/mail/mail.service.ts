@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, Like, ILike, Between, Raw } from 'typeorm'
+import { Repository, Like, ILike, Between, Raw, In } from 'typeorm'
 import { Mail } from '../../entities/mail.entity'
 import { User } from '../../entities/user.entity'
 import { AiService } from '../ai/ai.service'
@@ -59,6 +59,21 @@ export class MailService {
   }
 
   /**
+   * 获取未读邮件数量
+   */
+  async getUnreadCount(userId: string): Promise<{ count: number }> {
+    const count = await this.mailRepository.count({
+      where: {
+        userId,
+        folder: 'inbox',
+        isRead: false,
+        isDeleted: false,
+      },
+    })
+    return { count }
+  }
+
+  /**
    * 获取已发送
    */
   async getSent(userId: string, page: number = 1, limit: number = 20) {
@@ -110,6 +125,29 @@ export class MailService {
       .where('mail.userId = :userId', { userId })
       .andWhere('mail.folder = :folder', { folder: 'trash' })
       .orderBy('mail.deletedAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+
+    const [mails, total] = await query.getManyAndCount()
+
+    return {
+      data: mails,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    }
+  }
+
+  /**
+   * 获取垃圾邮件
+   */
+  async getSpam(userId: string, page: number = 1, limit: number = 20) {
+    const query = this.mailRepository.createQueryBuilder('mail')
+      .where('mail.userId = :userId', { userId })
+      .andWhere('mail.folder = :folder', { folder: 'spam' })
+      .andWhere('mail.isDeleted = :isDeleted', { isDeleted: false })
+      .orderBy('mail.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
 
@@ -189,6 +227,64 @@ export class MailService {
     const mail = this.mailRepository.create(mailData)
     const savedMail = await this.mailRepository.save(mail)
 
+    // 如果不是草稿，为每个收件人创建收件箱邮件
+    if (!data.isDraft) {
+      console.log('📧 开始为收件人创建收件箱邮件，收件人列表:', data.to)
+      // 为每个收件人创建邮件
+      for (const toEmail of data.to) {
+        console.log('🔍 查找收件人:', toEmail)
+        // 尝试通过邮箱查找用户
+        let recipientUser = await this.userRepository.findOne({ where: { email: toEmail } })
+
+        // 如果没找到，尝试通过手机号查找
+        if (!recipientUser) {
+          console.log('  通过邮箱未找到，尝试通过手机号查找...')
+          recipientUser = await this.userRepository.findOne({ where: { phone: toEmail } })
+        }
+
+        // 如果还是没找到，尝试从邮箱中提取手机号（处理 xxx@example.com 格式）
+        if (!recipientUser && toEmail.includes('@')) {
+          const phoneFromEmail = toEmail.split('@')[0]
+          console.log('  尝试从邮箱中提取手机号:', phoneFromEmail)
+          // 检查是否为纯数字（手机号）
+          if (/^\d+$/.test(phoneFromEmail)) {
+            recipientUser = await this.userRepository.findOne({ where: { phone: phoneFromEmail } })
+            if (recipientUser) {
+              console.log('  ✅ 通过提取的手机号找到用户')
+            }
+          }
+        }
+
+        // 如果是系统用户，创建收件箱邮件
+        if (recipientUser) {
+          console.log('  ✅ 找到系统用户:', recipientUser.id, recipientUser.email, recipientUser.phone)
+          const recipientMailData: Partial<Mail> = {
+            userId: recipientUser.id,
+            folder: 'inbox',
+            from: actualFrom,
+            fromName: actualFromName,
+            to: [toEmail],
+            cc: data.cc || [],
+            subject: data.subject,
+            content: data.content,
+            contentHtml: data.contentHtml,
+            attachments: data.attachments || [],
+            inReplyTo: data.inReplyTo,
+            isRead: false,
+            isStarred: false,
+            sentAt: new Date(),
+            status: 'delivered',
+          }
+
+          const recipientMail = this.mailRepository.create(recipientMailData)
+          await this.mailRepository.save(recipientMail)
+          console.log('  ✅ 已创建收件箱邮件，ID:', recipientMail.id)
+        } else {
+          console.log('  ⚠️ 未找到系统用户，跳过创建收件箱邮件')
+        }
+      }
+    }
+
     // 如果通过 SMTP 实际发送
     if (data.sendViaSmtp && !data.isDraft) {
       const smtpResult = await this.mailSenderService.sendEmail({
@@ -242,7 +338,7 @@ export class MailService {
    */
   async batchMoveToTrash(userId: string, ids: string[]): Promise<number> {
     const result = await this.mailRepository.update(
-      { id: ids[0], userId },
+      { id: In(ids), userId },
       {
         folder: 'trash',
         isDeleted: true,
@@ -296,7 +392,7 @@ export class MailService {
    */
   async batchMarkAsRead(userId: string, ids: string[], isRead: boolean): Promise<number> {
     const result = await this.mailRepository.update(
-      { id: ids[0], userId },
+      { id: In(ids), userId },
       { isRead },
     )
     return result.affected || 0
@@ -496,6 +592,34 @@ export class MailService {
         isRead: true,
         isStarred: false,
       },
+      // 垃圾邮件测试数据
+      {
+        from: 'winner@spam.com',
+        fromName: '幸运抽奖中心',
+        subject: '恭喜您获得 100 万元大奖！请立即领取',
+        content: '尊敬的幸运用户：\n\n恭喜您在本次国际抽奖活动中获得特等奖 100 万元！\n请点击链接领取：http://spam.com/claim\n\n抽奖中心',
+        folder: 'spam',
+        isRead: false,
+        isStarred: false,
+      },
+      {
+        from: 'bank@fake-bank.com',
+        fromName: '银行安全中心',
+        subject: '您的银行账户已被冻结，请立即验证',
+        content: '尊敬的客户：\n\n您的银行账户存在异常，请立即点击链接验证：http://fake-bank.com/verify\n\n银行安全中心',
+        folder: 'spam',
+        isRead: false,
+        isStarred: false,
+      },
+      {
+        from: 'promo@marketing.com',
+        fromName: '促销活动中心',
+        subject: '【限时促销】全场 1 折起！错过再等一年',
+        content: '亲爱的顾客：\n\n本店举行限时促销活动，全场商品 1 折起！\n立即购买：http://marketing.com/sale\n\n促销中心',
+        folder: 'spam',
+        isRead: true,
+        isStarred: false,
+      },
     ];
 
     let mailCount = 0;
@@ -503,18 +627,55 @@ export class MailService {
       const mail = this.mailRepository.create({
         userId,
         folder: 'inbox',
-        ...emailData,
         to: ['user@example.com'],
         status: 'delivered',
         isTest: true,
+        ...emailData,
       });
       await this.mailRepository.save(mail);
       mailCount++;
     }
 
+    // 生成草稿测试数据
+    const testDrafts = [
+      {
+        to: ['client@company.com'],
+        from: 'user@example.com',
+        fromName: '用户',
+        subject: '关于合作事宜的沟通',
+        content: '尊敬的客户：\n\n您好！关于上次会议讨论的合作事宜，我们整理了一份详细的方案...\n\n期待您的回复。\n\n此致\n敬礼',
+      },
+      {
+        to: ['team@company.com'],
+        from: 'user@example.com',
+        fromName: '用户',
+        subject: '2024 年度工作总结',
+        content: '尊敬的领导：\n\n现将本部门 2024 年度工作情况总结如下：\n\n一、主要工作完成情况\n二、存在的问题和不足\n三、2025 年工作计划\n\n汇报人：XXX',
+      },
+      {
+        to: ['hr@company.com'],
+        from: 'user@example.com',
+        fromName: '用户',
+        subject: '请假申请',
+        content: '尊敬的领导：\n\n您好！因个人原因，我拟于 X 月 X 日至 X 月 X 日请假，共计 X 天。\n\n恳请批准。\n\n申请人：XXX',
+      },
+    ];
+
+    let draftCount = 0;
+    for (const draftData of testDrafts) {
+      const draft = this.mailRepository.create({
+        userId,
+        folder: 'drafts',
+        ...draftData,
+        status: 'draft',
+      });
+      await this.mailRepository.save(draft);
+      draftCount++;
+    }
+
     return {
       success: true,
-      message: `已生成 ${mailCount} 封测试邮件`,
+      message: `已生成 ${mailCount} 封测试邮件和 ${draftCount} 封草稿`,
     };
   }
 }

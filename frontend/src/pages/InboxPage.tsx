@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Star, 
-  Paperclip, 
-  Trash2, 
-  Archive, 
-  ChevronDown, 
+import {
+  Star,
+  Paperclip,
+  Trash2,
+  Archive,
+  ChevronDown,
   MoreVertical,
   RefreshCw,
   Tag,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import PageToolbar from '../components/PageToolbar';
 import { mailApi } from '../api/mail';
+import { useToast } from '../contexts/ToastContext';
 
 interface Email {
   id: number | string;
@@ -35,98 +36,10 @@ interface Email {
   isTest?: boolean;  // 标记是否为测试数据
 }
 
-const mockEmails: Email[] = [
-  {
-    id: 1,
-    from: '星耀科技',
-    subject: '协同办公软件推荐',
-    date: '11:28',
-    size: '10KB',
-    hasAttachment: true,
-    isRead: false,
-    isStarred: true,
-    avatar: '星',
-    avatarColor: 'bg-orange-100 text-orange-600'
-  },
-  {
-    id: 2,
-    from: '95555',
-    subject: '招商银行零售贷款电子对账单',
-    date: '11 月 23 日',
-    size: '19KB',
-    hasAttachment: true,
-    isRead: false,
-    isStarred: false,
-    avatar: '9',
-    avatarColor: 'bg-amber-100 text-amber-600'
-  },
-  {
-    id: 3,
-    from: '三星电子',
-    subject: '【三星 Galaxy】瞩目时刻，即将展开。',
-    date: '11 月 23 日',
-    size: '15KB',
-    hasAttachment: true,
-    isRead: false,
-    isStarred: false,
-    avatar: '三',
-    avatarColor: 'bg-blue-100 text-blue-600'
-  },
-  {
-    id: 4,
-    from: 'Dell Notifications',
-    subject: 'XPS 13 9360 有新的更新',
-    date: '11 月 22 日',
-    size: '28KB',
-    hasAttachment: false,
-    isRead: false,
-    isStarred: true,
-    avatar: 'D',
-    avatarColor: 'bg-[#0077C8]/10 text-[#0077C8]'
-  },
-  {
-    id: 5,
-    from: '京东 JD.com',
-    subject: '京东用户，诚邀您参与调研，有机会得 500 京豆！(AD)',
-    date: '11 月 22 日',
-    size: '11KB',
-    hasAttachment: false,
-    isRead: false,
-    isStarred: false,
-    avatar: '京',
-    avatarColor: 'bg-[#E1251B]/10 text-[#E1251B]'
-  },
-  {
-    id: 6,
-    from: 'Apple',
-    subject: '你最近使用 Apple 账户下载的项目',
-    date: '11 月 22 日',
-    size: '8KB',
-    hasAttachment: false,
-    isRead: false,
-    isStarred: false,
-    avatar: 'A',
-    avatarColor: 'bg-gray-200 text-gray-600'
-  },
-];
-
-const earlierEmails: Email[] = Array(15).fill(null).map((_, i) => ({
-  id: 100 + i,
-  from: '12306@rails.com.cn',
-  subject: '网上购票系统 - 用户支付通知',
-  date: '11 月 21 日',
-  size: '19KB',
-  hasAttachment: i % 5 === 0,
-  isRead: true,
-  isStarred: i === 3,
-  avatar: '1',
-  avatarColor: 'bg-slate-100 text-slate-600',
-  isTest: true  // 标记为测试数据
-}));
-
 export default function InboxPage() {
   const navigate = useNavigate();
-  const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
+  const { showToast, showConfirm } = useToast();
+  const [selectedEmails, setSelectedEmails] = useState<(number | string)[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [realEmails, setRealEmails] = useState<Email[]>([]);  // 真实数据
   const [loading, setLoading] = useState(false);
@@ -178,8 +91,8 @@ export default function InboxPage() {
     } else {
       message = `测试数据无法${action}，请选择真实数据邮件`;
     }
-    
-    alert(message);
+
+    showToast(message, realCount > 0 ? 'success' : 'warning');
   };
 
   // 分页控制函数
@@ -213,7 +126,7 @@ export default function InboxPage() {
       setLoading(true);
       const result = await mailApi.getInbox(currentPage, pageSize);
       const emailList = Array.isArray(result.data) ? result.data : (result as any[]);
-      
+
       const transformedEmails: Email[] = emailList.map((mail: any) => ({
         id: mail.id,
         from: mail.fromName || mail.from.split('@')[0],
@@ -225,13 +138,15 @@ export default function InboxPage() {
         isStarred: mail.isStarred,
         avatar: (mail.fromName || mail.from).charAt(0),
         avatarColor: getAvatarColor(mail.fromName || mail.from),
-        isTest: false,  // 标记为真实数据
+        isTest: mail.isTest || false,  // 保留后端的 isTest 标记
       }));
-      
+
       setRealEmails(transformedEmails);
       setTotalEmails(result.total || emailList.length);
     } catch (error) {
       console.error('加载真实数据失败:', error);
+      setRealEmails([]);
+      setTotalEmails(0);
     } finally {
       setLoading(false);
     }
@@ -242,9 +157,11 @@ export default function InboxPage() {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
+
     if (days === 0) {
-      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      return '今天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    } else if (days === 1) {
+      return '昨天';
     } else if (days < 7) {
       const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
       return weekdays[date.getDay()];
@@ -275,10 +192,10 @@ export default function InboxPage() {
   };
 
   const handleEmailClick = (emailId: number | string) => {
-    navigate(`/mail/${emailId}`);
+    navigate(`/mail/${emailId}`, { state: { from: '/inbox' } });
   };
 
-  const toggleSelect = (id: number) => {
+  const toggleSelect = (id: number | string) => {
     setSelectedEmails(prev =>
       prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
     );
@@ -287,12 +204,7 @@ export default function InboxPage() {
   const toggleSelectAll = () => {
     setSelectAll(!selectAll);
     if (!selectAll) {
-      const allIds = [
-        ...mockEmails.map(e => e.id),
-        ...earlierEmails.map(e => e.id),
-        ...realEmails.map(e => e.id)
-      ];
-      setSelectedEmails(allIds);
+      setSelectedEmails(realEmails.map(e => e.id));
     } else {
       setSelectedEmails([]);
     }
@@ -300,188 +212,213 @@ export default function InboxPage() {
 
   const handleDelete = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要删除的邮件');
+      showToast('请先选择要删除的邮件', 'warning');
       return;
     }
-    const confirmed = window.confirm(`确定要删除选中的 ${selectedEmails.length} 封邮件吗？`);
+    const confirmed = await showConfirm({
+      title: '确认删除',
+      message: `确定要删除选中的 ${selectedEmails.length} 封邮件吗？`,
+      confirmText: '删除',
+      type: 'danger'
+    });
     if (confirmed) {
       try {
         // 删除真实数据
         const realIds = getRealEmailIds();
         for (const id of realIds) {
-          await mailApi.delete(Number(id));
+          await mailApi.deleteMail(id);
         }
-        
+
         // 刷新真实数据
         await loadRealEmails();
-        
+
         // 显示结果
         showResultMessage(realIds.length, selectedEmails.length, '删除');
         setSelectedEmails([]);
         setSelectAll(false);
       } catch (error) {
         console.error('Delete error:', error);
-        alert('删除失败：' + (error as any).message);
+        showToast('删除失败：' + (error as any).message, 'error');
       }
     }
   };
 
   const handleForward = () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要转发的邮件');
+      showToast('请先选择要转发的邮件', 'warning');
       return;
     }
-    const recipient = window.prompt('请输入收件人邮箱：');
-    if (recipient) {
-      alert(`已转发 ${selectedEmails.length} 封邮件给 ${recipient}`);
-    }
+    // 转发功能暂时跳转到写信页面
+    navigate('/compose');
   };
 
   const handleMarkAsRead = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记的邮件');
+      showToast('请先选择要标记的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.markAsRead(Number(id), true);
+        await mailApi.markAsRead(id, true);
       }
-      
+
       await loadRealEmails();
       showResultMessage(realIds.length, selectedEmails.length, '标记为已读');
       setSelectedEmails([]);
       setSelectAll(false);
       setShowMarkMenu(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
     }
   };
 
   const handleMarkAsUnread = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记的邮件');
+      showToast('请先选择要标记的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.markAsRead(Number(id), false);
+        await mailApi.markAsRead(id, false);
       }
-      
+
       await loadRealEmails();
       showResultMessage(realIds.length, selectedEmails.length, '标记为未读');
       setSelectedEmails([]);
       setSelectAll(false);
       setShowMarkMenu(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
     }
   };
 
   const handleRefresh = async () => {
     await loadRealEmails();
-    alert('已刷新');
+    showToast('已刷新', 'success');
   };
 
   const handleGenerateTestData = async () => {
     try {
       await mailApi.generateTestData();
       await loadRealEmails();
-      alert('测试数据已生成');
+      showToast('测试数据已生成', 'success');
     } catch (error) {
-      alert('生成失败：' + (error as any).message);
+      showToast('生成失败：' + (error as any).message, 'error');
     }
   };
 
   const handleStar = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记为星标的邮件');
+      showToast('请先选择要标记为星标的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.toggleStar(Number(id));
+        await mailApi.toggleStar(id);
       }
-      
+
       await loadRealEmails();
       showResultMessage(realIds.length, selectedEmails.length, '标记为星标');
       setSelectedEmails([]);
       setSelectAll(false);
     } catch (error) {
-      alert('标记失败：' + (error as any).message);
+      showToast('标记失败：' + (error as any).message, 'error');
+    }
+  };
+
+  // 单个邮件切换星标
+  const handleToggleStarSingle = async (emailId: number | string, isStarred: boolean, isTest?: boolean) => {
+    // 测试数据无法切换
+    if (isTest) {
+      showToast('测试数据无法修改', 'warning');
+      return;
+    }
+    try {
+      await mailApi.toggleStar(emailId);
+      // 刷新列表
+      await loadRealEmails();
+      showToast(isStarred ? '已取消星标' : '已标记星标', 'success');
+    } catch (error) {
+      showToast('操作失败：' + (error as any).message, 'error');
     }
   };
 
   const handleArchive = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要归档的邮件');
+      showToast('请先选择要归档的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.archive(Number(id));
+        await mailApi.archive(id);
       }
-      
+
       await loadRealEmails();
       showResultMessage(realIds.length, selectedEmails.length, '归档');
       setSelectedEmails([]);
       setSelectAll(false);
     } catch (error) {
-      alert('归档失败：' + (error as any).message);
+      showToast('归档失败：' + (error as any).message, 'error');
     }
   };
 
   const handleMove = async (folder: string) => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要移动的邮件');
+      showToast('请先选择要移动的邮件', 'warning');
       return;
     }
     try {
       const realIds = getRealEmailIds();
       for (const id of realIds) {
-        await mailApi.moveToFolder(Number(id), folder);
+        await mailApi.moveToFolder(id, folder);
       }
-      
+
       await loadRealEmails();
-      
+
       const folderNames: Record<string, string> = {
         'sent': '已发送',
         'drafts': '草稿箱',
         'trash': '已删除',
         'spam': '垃圾箱'
       };
-      
+
       showResultMessage(realIds.length, selectedEmails.length, `移动到${folderNames[folder] || folder}`);
       setSelectedEmails([]);
       setSelectAll(false);
       setShowMoveMenu(false);
     } catch (error) {
-      alert('移动失败：' + (error as any).message);
+      showToast('移动失败：' + (error as any).message, 'error');
     }
   };
 
   const handleSpam = async () => {
     if (selectedEmails.length === 0) {
-      alert('请先选择要标记为垃圾邮件的邮件');
+      showToast('请先选择要标记为垃圾邮件的邮件', 'warning');
       return;
     }
-    const confirmed = window.confirm(`确定要将选中的 ${selectedEmails.length} 封邮件标记为垃圾邮件吗？`);
+    const confirmed = await showConfirm({
+      title: '标记为垃圾邮件',
+      message: `确定要将选中的 ${selectedEmails.length} 封邮件标记为垃圾邮件吗？`,
+      confirmText: '确定',
+      type: 'warning'
+    });
     if (confirmed) {
       try {
         const realIds = getRealEmailIds();
         for (const id of realIds) {
-          await mailApi.moveToFolder(Number(id), 'spam');
+          await mailApi.moveToFolder(id, 'spam');
         }
-        
+
         await loadRealEmails();
         showResultMessage(realIds.length, selectedEmails.length, '标记为垃圾邮件');
         setSelectedEmails([]);
         setSelectAll(false);
       } catch (error) {
-        alert('标记失败：' + (error as any).message);
+        showToast('标记失败：' + (error as any).message, 'error');
       }
     }
   };
@@ -490,7 +427,14 @@ export default function InboxPage() {
   const renderEmailRow = (email: Email) => (
     <div
       key={email.id}
-      onClick={() => handleEmailClick(email.id)}
+      onClick={() => {
+        // 测试数据无法查看详情
+        if (email.isTest) {
+          showToast('测试数据仅用于展示，无法查看详情', 'warning');
+          return;
+        }
+        handleEmailClick(email.id);
+      }}
       className={`px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-100 ${
         !email.isRead ? 'bg-blue-50/50' : ''
       }`}
@@ -537,7 +481,7 @@ export default function InboxPage() {
       <button
         onClick={(e) => {
           e.stopPropagation();
-          console.log('Toggle star:', email.id);
+          handleToggleStarSingle(email.id, email.isStarred, email.isTest);
         }}
         className="p-1 hover:bg-slate-100 rounded flex-shrink-0"
       >
@@ -710,7 +654,7 @@ export default function InboxPage() {
                 生成测试数据
               </button>
               <span className="text-xs text-slate-500">
-                共 {mockEmails.length + earlierEmails.length + realEmails.length} 封
+                共 {realEmails.length} 封
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               <button className="p-1 hover:bg-slate-100 rounded">
@@ -722,53 +666,77 @@ export default function InboxPage() {
 
         {/* 邮件列表 */}
         <div className="flex-1 overflow-y-auto">
-          {/* 今天 - 混合显示测试数据和真实数据 */}
-          <div>
-            <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-              <span className="text-[10px] font-medium text-slate-500">今天</span>
-              <span className="text-[10px] text-slate-400">
-                （{mockEmails.slice(0, 1).length + realEmails.filter(e => e.date.includes('今天') || e.date.includes(':')).length} 封）
-              </span>
+          {loading ? (
+            <div className="flex items-center justify-center h-40">
+              <div className="text-slate-500">加载中...</div>
             </div>
-            {mockEmails.slice(0, 1).map(renderEmailRow)}
-            {realEmails.filter(e => e.date.includes('今天') || e.date.includes(':')).map(renderEmailRow)}
-          </div>
+          ) : realEmails.length === 0 ? (
+            <div className="flex items-center justify-center h-40">
+              <div className="text-center">
+                <div className="text-slate-400 text-sm mb-2">暂无邮件</div>
+                <button
+                  onClick={handleGenerateTestData}
+                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+                >
+                  生成测试数据
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* 今天 */}
+              {realEmails.some(e => e.date.includes('今天')) && (
+                <div>
+                  <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-slate-500">今天</span>
+                    <span className="text-[10px] text-slate-400">
+                      （{realEmails.filter(e => e.date.includes('今天')).length} 封）
+                    </span>
+                  </div>
+                  {realEmails.filter(e => e.date.includes('今天')).map(renderEmailRow)}
+                </div>
+              )}
 
-          {/* 周二 - 混合显示测试数据和真实数据 */}
-          <div>
-            <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-              <span className="text-[10px] font-medium text-slate-500">周二</span>
-              <span className="text-[10px] text-slate-400">
-                （{mockEmails.slice(1, 3).length + realEmails.filter(e => e.date.includes('周二')).length} 封）
-              </span>
-            </div>
-            {mockEmails.slice(1, 3).map(renderEmailRow)}
-            {realEmails.filter(e => e.date.includes('周二')).map(renderEmailRow)}
-          </div>
+              {/* 昨天 */}
+              {realEmails.some(e => e.date.includes('昨天')) && (
+                <div>
+                  <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-slate-500">昨天</span>
+                    <span className="text-[10px] text-slate-400">
+                      （{realEmails.filter(e => e.date.includes('昨天')).length} 封）
+                    </span>
+                  </div>
+                  {realEmails.filter(e => e.date.includes('昨天')).map(renderEmailRow)}
+                </div>
+              )}
 
-          {/* 周一 - 混合显示测试数据和真实数据 */}
-          <div>
-            <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-              <span className="text-[10px] font-medium text-slate-500">周一</span>
-              <span className="text-[10px] text-slate-400">
-                （{mockEmails.slice(3, 6).length + realEmails.filter(e => e.date.includes('周一')).length} 封）
-              </span>
-            </div>
-            {mockEmails.slice(3, 6).map(renderEmailRow)}
-            {realEmails.filter(e => e.date.includes('周一')).map(renderEmailRow)}
-          </div>
+              {/* 本周 */}
+              {realEmails.some(e => ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].some(day => e.date.includes(day)) && !e.date.includes('昨天')) && (
+                <div>
+                  <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-slate-500">本周</span>
+                    <span className="text-[10px] text-slate-400">
+                      （{realEmails.filter(e => ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].some(day => e.date.includes(day)) && !e.date.includes('昨天')).length} 封）
+                    </span>
+                  </div>
+                  {realEmails.filter(e => ['周一', '周二', '周三', '周四', '周五', '周六', '周日'].some(day => e.date.includes(day)) && !e.date.includes('昨天')).map(renderEmailRow)}
+                </div>
+              )}
 
-          {/* 更早 - 混合显示测试数据和真实数据 */}
-          <div>
-            <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-              <span className="text-[10px] font-medium text-slate-500">更早</span>
-              <span className="text-[10px] text-slate-400">
-                （{earlierEmails.length + realEmails.filter(e => !e.date.includes('今天') && !e.date.includes('周二') && !e.date.includes('周一') && !e.date.includes(':')).length} 封）
-              </span>
-            </div>
-            {earlierEmails.map(renderEmailRow)}
-            {realEmails.filter(e => !e.date.includes('今天') && !e.date.includes('周二') && !e.date.includes('周一') && !e.date.includes(':')).map(renderEmailRow)}
-          </div>
+              {/* 更早 */}
+              {realEmails.some(e => !e.date.includes('今天') && !e.date.includes('昨天') && !['周一', '周二', '周三', '周四', '周五', '周六', '周日'].some(day => e.date.includes(day))) && (
+                <div>
+                  <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-slate-500">更早</span>
+                    <span className="text-[10px] text-slate-400">
+                      （{realEmails.filter(e => !e.date.includes('今天') && !e.date.includes('昨天') && !['周一', '周二', '周三', '周四', '周五', '周六', '周日'].some(day => e.date.includes(day))).length} 封）
+                    </span>
+                  </div>
+                  {realEmails.filter(e => !e.date.includes('今天') && !e.date.includes('昨天') && !['周一', '周二', '周三', '周四', '周五', '周六', '周日'].some(day => e.date.includes(day))).map(renderEmailRow)}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* 分页 */}
