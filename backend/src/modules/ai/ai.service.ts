@@ -39,40 +39,94 @@ export class AiService {
    * 调用百炼 API
    */
   private async callAI(prompt: string, systemPrompt?: string): Promise<string> {
+    console.log('🔑 API Key 配置:', this.apiKey ? `已配置 (${this.apiKey.substring(0, 15)}...)` : '未配置')
+    
     if (!this.apiKey || this.apiKey === 'sk-your-api-key-here') {
       console.warn('⚠️ AI API Key 未配置，返回模拟数据')
       return this.getMockResponse(prompt)
     }
 
     try {
+      console.log('🤖 开始调用百炼 AI API...')
+      console.log('📝 Prompt:', prompt.substring(0, 50) + '...')
+      console.log('🎨 Tone:', systemPrompt ? '有系统提示' : '无系统提示')
+      
+      // 构建正确的 URL
+      const isCompatibleMode = this.apiUrl.includes('/compatible-mode')
+      const url = isCompatibleMode
+        ? `${this.apiUrl}/chat/completions`
+        : `${this.apiUrl}/services/aigc/text-generation/generation`
+      
+      console.log('🌐 API URL:', url)
+      console.log('🤖 Model:', this.model)
+      
+      // 构建请求体
+      const messages = [
+        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+        { role: 'user', content: prompt },
+      ]
+      
+      console.log('💬 Messages:', JSON.stringify(messages, null, 2))
+      
+      const requestBody = isCompatibleMode
+        ? {
+            model: this.model,
+            messages,
+          }
+        : {
+            model: this.model,
+            input: { messages },
+            parameters: {
+              temperature: 0.7,
+              max_tokens: 2000,
+            },
+          }
+      
+      console.log('📦 Request Body:', JSON.stringify(requestBody, null, 2))
+      
       const response = await axios.post(
-        `${this.apiUrl}/services/aigc/text-generation/generation`,
-        {
-          model: this.model,
-          input: {
-            messages: [
-              ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-              { role: 'user', content: prompt },
-            ],
-          },
-          parameters: {
-            temperature: 0.7,
-            max_tokens: 2000,
-          },
-        },
+        url,
+        requestBody,
         {
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
           },
-          timeout: 30000,
+          timeout: 60000,  // 增加到 60 秒超时
         },
       )
 
-      return response.data.output?.text || response.data.output?.choices?.[0]?.message?.content || ''
-    } catch (error) {
-      console.error('AI API 调用失败:', error.message)
-      throw new BadRequestException('AI 服务暂时不可用')
+      console.log('✅ AI 响应状态:', response.status)
+      console.log('📥 AI 响应数据:', JSON.stringify(response.data, null, 2))
+      
+      // 解析响应
+      const content = isCompatibleMode
+        ? response.data.choices?.[0]?.message?.content
+        : response.data.output?.text || response.data.output?.choices?.[0]?.message?.content
+      
+      console.log('📝 解析内容:', content ? content.substring(0, 100) + '...' : '无内容')
+      
+      if (!content) {
+        console.warn('⚠️ AI 返回内容为空，使用模拟数据')
+        return this.getMockResponse(prompt)
+      }
+      
+      return content
+    } catch (error: any) {
+      console.error('❌ AI API 调用失败:', error.message)
+      console.error('🔍 Error details:', {
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      })
+      if (error.response) {
+        console.error('📥 错误响应状态:', error.response.status)
+        console.error('📥 错误响应数据:', JSON.stringify(error.response.data, null, 2))
+      }
+      console.log('⚠️ 返回模拟数据')
+      // API 失败时返回模拟数据
+      return this.getMockResponse(prompt)
     }
   }
 
@@ -114,13 +168,17 @@ export class AiService {
 
     const content = await this.callAI(userPrompt, systemPrompt)
 
+    console.log('✅ AI 生成内容:', content.substring(0, 100) + '...')
+
     // 生成备选版本
     const alternativePrompt = `请用不同的语气重新写这封邮件，提供 2 个版本：${prompt}`
     const alternativesRaw = await this.callAI(alternativePrompt, systemPrompt)
 
+    console.log('✅ AI 备选内容:', alternativesRaw.substring(0, 100) + '...')
+
     return {
       content,
-      alternatives: [alternativesRaw],
+      alternatives: alternativesRaw ? [alternativesRaw] : [],
     }
   }
 

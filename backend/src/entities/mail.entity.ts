@@ -77,6 +77,9 @@ export class Mail {
   @Column({ type: 'boolean', default: false })
   isPhishing: boolean
 
+  @Column({ type: 'boolean', default: false })
+  isTest: boolean  // 测试数据标记
+
   @Column({ nullable: true })
   phishingScore: number
 

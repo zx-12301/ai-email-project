@@ -6,6 +6,7 @@ import { MailModule } from './modules/mail/mail.module'
 import { AiModule } from './modules/ai/ai.module'
 import { ContactModule } from './modules/contact/contact.module'
 import { FileModule } from './modules/file/file.module'
+import { NotificationModule } from './modules/notification/notification.module'
 import { User, Mail, Contact } from './entities'
 
 @Module({
@@ -35,6 +36,7 @@ import { User, Mail, Contact } from './entities'
     AiModule,
     ContactModule,
     FileModule,
+    NotificationModule,
   ],
 })
 export class AppModule {}

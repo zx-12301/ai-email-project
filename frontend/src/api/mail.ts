@@ -6,13 +6,130 @@ const getToken = () => {
 };
 
 // 通用请求头
-const getHeaders = () => ({
+const getHeaders = (includeToken = true) => ({
   'Content-Type': 'application/json',
-  'Authorization': `Bearer ${getToken()}`
+  ...(includeToken ? { 'Authorization': `Bearer ${getToken()}` } : {})
 });
 
 // 邮件操作 API
 export const mailApi = {
+  // 获取收件箱
+  async getInbox(page: number = 1, limit: number = 20, filters?: {
+    isRead?: boolean;
+    isStarred?: boolean;
+  }) {
+    const params = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
+    if (filters?.isRead !== undefined) params.append('isRead', filters.isRead.toString());
+    if (filters?.isStarred !== undefined) params.append('isStarred', filters.isStarred.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/mail/inbox?${params.toString()}`, {
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('获取收件箱失败');
+    }
+    return response.json();
+  },
+
+  // 获取已发送
+  async getSent(page: number = 1, limit: number = 20) {
+    const response = await fetch(`${API_BASE_URL}/mail/sent?page=${page}&limit=${limit}`, {
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('获取已发送失败');
+    }
+    return response.json();
+  },
+
+  // 获取草稿箱
+  async getDrafts(page: number = 1, limit: number = 20) {
+    const response = await fetch(`${API_BASE_URL}/mail/drafts?page=${page}&limit=${limit}`, {
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('获取草稿箱失败');
+    }
+    return response.json();
+  },
+
+  // 获取垃圾箱
+  async getTrash(page: number = 1, limit: number = 20) {
+    const response = await fetch(`${API_BASE_URL}/mail/trash?page=${page}&limit=${limit}`, {
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('获取垃圾箱失败');
+    }
+    return response.json();
+  },
+
+  // 获取垃圾邮件
+  async getSpam(page: number = 1, limit: number = 20) {
+    const response = await fetch(`${API_BASE_URL}/mail/inbox?page=${page}&limit=${limit}`, {
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('获取垃圾邮件失败');
+    }
+    const result = await response.json();
+    // 在前端过滤出垃圾邮件（folder === 'spam'）
+    return {
+      ...result,
+      data: result.data.filter((mail: any) => mail.folder === 'spam')
+    };
+  },
+
+  // 获取邮件详情
+  async getMailById(id: string) {
+    const response = await fetch(`${API_BASE_URL}/mail/${id}`, {
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('获取邮件失败');
+    }
+    return response.json();
+  },
+
+  // 发送邮件
+  async sendMail(data: {
+    to: string[];
+    cc?: string[];
+    subject: string;
+    content: string;
+    contentHtml?: string;
+    isDraft?: boolean;
+    sendViaSmtp?: boolean;
+  }) {
+    const response = await fetch(`${API_BASE_URL}/mail`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      throw new Error('发送失败');
+    }
+    return response.json();
+  },
+
+  // 保存草稿
+  async saveDraft(data: {
+    to: string[];
+    cc?: string[];
+    subject: string;
+    content: string;
+  }) {
+    const response = await fetch(`${API_BASE_URL}/mail/draft`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      throw new Error('保存草稿失败');
+    }
+    return response.json();
+  },
+
   // 删除单封邮件
   async delete(id: number): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/mail/${id}`, {
@@ -111,10 +228,26 @@ export const mailApi = {
   },
 
   // 移动邮件到文件夹
-  async move(id: number, folder: string): Promise<void> {
-    // 暂时模拟实现
-    console.log(`Move mail ${id} to ${folder}`);
-    return Promise.resolve();
+  async moveToFolder(id: number, folder: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/mail/${id}`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ folder })
+    });
+    if (!response.ok) {
+      throw new Error('移动失败');
+    }
+  },
+
+  // 归档邮件
+  async archive(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/mail/${id}/archive`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('归档失败');
+    }
   },
 
   // 标记为垃圾邮件
@@ -127,6 +260,62 @@ export const mailApi = {
     if (!response.ok) {
       throw new Error('标记失败');
     }
+  },
+
+  // 搜索邮件
+  async search(query: string, page: number = 1, limit: number = 20, filters?: any) {
+    const params = new URLSearchParams({ q: query, page: page.toString(), limit: limit.toString() });
+    if (filters?.folder) params.append('folder', filters.folder);
+    if (filters?.isRead !== undefined) params.append('isRead', filters.isRead.toString());
+    if (filters?.isStarred !== undefined) params.append('isStarred', filters.isStarred.toString());
+    
+    const response = await fetch(`${API_BASE_URL}/mail/search?${params.toString()}`, {
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('搜索失败');
+    }
+    return response.json();
+  },
+
+  // 获取联系人列表
+  async getContacts() {
+    const response = await fetch(`${API_BASE_URL}/contact`, {
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('获取联系人失败');
+    }
+    return response.json();
+  },
+
+  // 获取星标联系人
+  async getStarredContacts() {
+    const contacts = await this.getContacts();
+    return contacts.filter((c: any) => c.isStarred);
+  },
+
+  // 生成测试数据
+  async generateTestData() {
+    const response = await fetch(`${API_BASE_URL}/mail/generate-test-data`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('生成测试数据失败');
+    }
+    return response.json();
+  },
+
+  // 获取联系人
+  async getContacts() {
+    const response = await fetch(`${API_BASE_URL}/contact`, {
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+      throw new Error('获取联系人失败');
+    }
+    return response.json();
   }
 };
 

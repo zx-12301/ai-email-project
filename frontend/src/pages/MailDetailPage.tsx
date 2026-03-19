@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ArrowLeft, Star, Trash2, Forward, MoreVertical, Mail,
   CheckCircle2, X, ChevronDown, Paperclip, Reply,
@@ -6,6 +6,7 @@ import {
   ThumbsUp, MessageSquare, Download
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { mailApi } from '../api/mail';
 
 interface Email {
   id: number;
@@ -88,6 +89,45 @@ export default function MailDetailPage() {
   const [isStarred, setIsStarred] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [realEmail, setRealEmail] = useState<Email | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // 加载真实数据
+  useEffect(() => {
+    if (mailId && !isNaN(parseInt(mailId, 10))) {
+      loadRealEmail(mailId);
+    }
+  }, [mailId]);
+
+  const loadRealEmail = async (id: string) => {
+    try {
+      setLoading(true);
+      const email = await mailApi.getMailById(id);
+      setRealEmail({
+        id: email.id,
+        from: email.fromName || email.from.split('@')[0],
+        fromEmail: email.from,
+        fromPhone: email.fromPhone,
+        fromCompany: email.fromCompany,
+        to: email.to,
+        cc: email.cc,
+        subject: email.subject,
+        content: email.content,
+        date: new Date(email.createdAt).toLocaleString('zh-CN'),
+        status: email.status,
+        hasAttachment: email.attachments && email.attachments.length > 0,
+        attachments: email.attachments?.map((att: string) => ({
+          name: att.split('/').pop() || att,
+          size: '未知',
+          type: att.split('.').pop() || 'file'
+        })),
+      });
+    } catch (error) {
+      console.error('加载邮件详情失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 根据邮件 ID 获取不同的邮件内容
   const getEmailById = (id: string): Email => {
@@ -131,13 +171,22 @@ export default function MailDetailPage() {
     return mockEmail;
   };
 
-  const currentEmail = getEmailById(mailId || '1');
+  // 优先使用真实数据，如果没有则使用测试数据
+  const currentEmail = realEmail ? realEmail : getEmailById(mailId || '1');
 
   const handleUseSuggestion = (index: number) => {
     setSelectedSuggestion(index);
     setReplyContent(aiSuggestions[index]);
     setIsReplying(true);
   };
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-slate-50">
+        <div className="text-slate-500">加载中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex bg-slate-50">

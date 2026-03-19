@@ -1,7 +1,49 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common'
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
-import { IsString, IsArray, IsOptional, IsBoolean } from 'class-validator'
+import { IsString, IsArray, IsOptional, IsBoolean, IsObject, ValidateNested } from 'class-validator'
 import { MailService } from './mail.service'
+import { MailFolder } from './mail.service'
+import { MailSenderService } from './mail-sender.service'
+import { NotificationService } from '../notification/notification.service'
+import { Type } from 'class-transformer'
+
+class SearchFiltersDto {
+  @IsOptional()
+  @IsString()
+  folder?: MailFolder
+
+  @IsOptional()
+  @IsBoolean()
+  isRead?: boolean
+
+  @IsOptional()
+  @IsBoolean()
+  isStarred?: boolean
+
+  @IsOptional()
+  @IsBoolean()
+  hasAttachments?: boolean
+
+  @IsOptional()
+  @IsString()
+  from?: string
+
+  @IsOptional()
+  @IsString()
+  to?: string
+
+  @IsOptional()
+  @IsString()
+  subject?: string
+
+  @IsOptional()
+  @IsString()
+  dateFrom?: string
+
+  @IsOptional()
+  @IsString()
+  dateTo?: string
+}
 
 class SendMailDto {
   @IsArray()
@@ -36,6 +78,10 @@ class SendMailDto {
   @IsBoolean()
   @IsOptional()
   isDraft?: boolean
+
+  @IsBoolean()
+  @IsOptional()
+  sendViaSmtp?: boolean  // 是否通过 SMTP 发送
 }
 
 class SearchMailDto {
@@ -47,7 +93,11 @@ class SearchMailDto {
 @Controller('mail')
 @UseGuards(AuthGuard('jwt'))
 export class MailController {
-  constructor(private mailService: MailService) {}
+  constructor(
+    private mailService: MailService,
+    private mailSenderService: MailSenderService,
+    private notificationService: NotificationService,
+  ) {}
 
   /**
    * 获取收件箱
@@ -185,11 +235,101 @@ export class MailController {
   }
 
   /**
-   * 搜索邮件
+   * 搜索邮件（支持高级过滤）
    */
   @Get('search')
-  async search(@Request() req, @Query() query: SearchMailDto) {
-    return this.mailService.search(req.user.userId, query.q, query.page, query.limit)
+  async search(
+    @Request() req,
+    @Query('q') q: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+    @Query('folder') folder?: MailFolder,
+    @Query('isRead') isRead?: boolean,
+    @Query('isStarred') isStarred?: boolean,
+    @Query('hasAttachments') hasAttachments?: boolean,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('subject') subject?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    const filters: SearchFiltersDto = {
+      folder,
+      isRead,
+      isStarred,
+      hasAttachments,
+      from,
+      to,
+      subject,
+      dateFrom,
+      dateTo,
+    }
+    return this.mailService.search(req.user.userId, q, page, limit, filters)
+  }
+
+  /**
+   * 获取 SMTP 配置状态
+   */
+  @Get('smtp/status')
+  async getSmtpStatus() {
+    const isConfigured = this.mailSenderService.isSmtpConfigured()
+    let isConnected = false
+
+    if (isConfigured) {
+      isConnected = await this.mailSenderService.verifySmtpConnection()
+    }
+
+    return {
+      configured: isConfigured,
+      connected: isConnected,
+      message: isConfigured 
+        ? (isConnected ? 'SMTP 已连接' : 'SMTP 配置正确但连接失败') 
+        : 'SMTP 未配置，请在 .env 文件中配置 SMTP_HOST, SMTP_USER, SMTP_PASS',
+    }
+  }
+
+  /**
+   * 测试 SMTP 连接
+   */
+  @Post('smtp/test')
+  @HttpCode(HttpStatus.OK)
+  async testSmtp(@Body() body?: { 
+    host?: string
+    port?: number
+    user?: string
+    pass?: string
+    secure?: boolean
+  }) {
+    if (body?.host) {
+      this.mailSenderService.updateSmtpConfig({
+        host: body.host,
+        port: body.port || 587,
+        secure: body.secure || false,
+        auth: {
+          user: body.user || '',
+          pass: body.pass || '',
+        },
+      })
+    }
+
+    const isConnected = await this.mailSenderService.verifySmtpConnection()
+
+    return {
+      success: isConnected,
+      message: isConnected ? 'SMTP 连接成功' : 'SMTP 连接失败，请检查配置',
+    }
+  }
+
+  /**
+   * 获取 WebSocket 连接状态
+   */
+  @Get('notification/status')
+  async getNotificationStatus() {
+    return {
+      onlineUsers: this.notificationService.getOnlineUserCount(),
+      enabled: true,
+      endpoint: '/notifications',
+    }
   }
 
   /**

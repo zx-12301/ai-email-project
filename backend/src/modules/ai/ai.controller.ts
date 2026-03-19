@@ -1,35 +1,61 @@
 import { Controller, Post, Body, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { AiService } from './ai.service'
+import { IsString, IsOptional, IsArray } from 'class-validator'
 
 class GenerateEmailDto {
+  @IsString()
   prompt: string
+  
+  @IsOptional()
+  @IsString()
   tone?: 'formal' | 'friendly' | 'concise' | 'detailed' | 'casual'
 }
 
 class GenerateReplyDto {
+  @IsString()
   mailContent: string
+  
+  @IsOptional()
+  @IsString()
   sender?: string
 }
 
 class DetectPhishingDto {
+  @IsString()
   mailContent: string
+  
+  @IsString()
   sender: string
+  
+  @IsOptional()
+  @IsString()
   subject?: string
 }
 
 class ClassifyMailDto {
+  @IsString()
   mailContent: string
+  
+  @IsOptional()
+  @IsString()
   subject?: string
 }
 
 class SummarizeMailDto {
+  @IsString()
   mailContent: string
+  
+  @IsOptional()
   maxLength?: number
 }
 
 class SuggestContactsDto {
+  @IsString()
   query: string
+  
+  @IsArray()
+  @IsString({ each: true })
   existingContacts: string[]
 }
 

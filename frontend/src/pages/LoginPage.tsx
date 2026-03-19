@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [code, setCode] = useState('');
   const [countdown, setCountdown] = useState(0);
   const [codeSent, setCodeSent] = useState(false);
+  const [gettingCode, setGettingCode] = useState(false);  // 获取验证码中
   
   // 密码登录状态
   const [account, setAccount] = useState('');
@@ -20,7 +21,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   
   // 通用状态
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);  // 登录中
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -49,7 +50,7 @@ export default function LoginPage() {
 
     try {
       setError('');
-      setLoading(true);
+      setGettingCode(true);  // 只设置获取验证码状态
       const result = await authApi.sendCode(phone);
       
       // 显示验证码在前端控制台
@@ -71,7 +72,7 @@ export default function LoginPage() {
     } catch (err: any) {
       setError(err.message || '发送失败');
     } finally {
-      setLoading(false);
+      setGettingCode(false);  // 只清除获取验证码状态
     }
   };
 
@@ -293,10 +294,10 @@ export default function LoginPage() {
                   </div>
                   <button
                     onClick={handleGetCode}
-                    disabled={countdown > 0 || !phone}
+                    disabled={countdown > 0 || !phone || gettingCode}
                     className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium rounded-lg transition-colors whitespace-nowrap"
                   >
-                    {countdown > 0 ? `${countdown}秒后重发` : '获取验证码'}
+                    {gettingCode ? '发送中...' : (countdown > 0 ? `${countdown}秒后重发` : '获取验证码')}
                   </button>
                 </div>
               </div>
@@ -304,10 +305,10 @@ export default function LoginPage() {
               {/* 登录按钮 */}
               <button
                 onClick={handlePhoneLogin}
-                disabled={loading}
+                disabled={loading || gettingCode}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
               >
-                {loading ? '登录中...' : '登录'}
+                {(loading || gettingCode) ? '登录中...' : '登录'}
               </button>
 
               {/* 其他选项 */}

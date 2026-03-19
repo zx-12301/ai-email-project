@@ -36,6 +36,3 @@ Write-Host "📖 更多文档：" -ForegroundColor Cyan
 Write-Host "   - START.md     : 详细启动指南" -ForegroundColor White
 Write-Host "   - API_TEST.md  : API 测试脚本" -ForegroundColor White
 Write-Host "   - docs/        : 项目文档" -ForegroundColor White
-Write-Host ""
-Write-Host "按任意键退出此窗口..." -ForegroundColor Gray
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")

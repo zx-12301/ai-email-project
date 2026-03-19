@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Star, 
@@ -13,8 +13,11 @@ import {
   Square,
   Mail,
   Search,
-  User
+  User,
+  Folder,
+  RefreshCw
 } from 'lucide-react';
+import { mailApi } from '../api/mail';
 
 interface Contact {
   id: number;

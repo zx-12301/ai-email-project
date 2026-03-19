@@ -1,8 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, Like, ILike, Between } from 'typeorm'
+import { Repository, Like, ILike, Between, Raw } from 'typeorm'
 import { Mail } from '../../entities/mail.entity'
+import { User } from '../../entities/user.entity'
 import { AiService } from '../ai/ai.service'
+import { MailSenderService } from './mail-sender.service'
+import { NotificationService } from '../notification/notification.service'
 
 export type MailFolder = 'inbox' | 'sent' | 'drafts' | 'trash' | 'spam'
 
@@ -11,7 +14,11 @@ export class MailService {
   constructor(
     @InjectRepository(Mail)
     private mailRepository: Repository<Mail>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     private aiService: AiService,
+    private mailSenderService: MailSenderService,
+    private notificationService: NotificationService,
   ) {}
 
   /**
@@ -154,12 +161,18 @@ export class MailService {
     attachments?: string[]
     inReplyTo?: string
     isDraft?: boolean
+    sendViaSmtp?: boolean
   }): Promise<Mail> {
+    // 获取当前用户信息，使用用户的邮箱作为发件人
+    const user = await this.userRepository.findOne({ where: { id: userId } })
+    const actualFrom = user?.email || data.from
+    const actualFromName = user?.name || data.fromName
+
     const mailData: Partial<Mail> = {
       userId,
       folder: data.isDraft ? 'drafts' : 'sent',
-      from: data.from,
-      fromName: data.fromName,
+      from: actualFrom,
+      fromName: actualFromName,
       to: data.to,
       cc: data.cc || [],
       bcc: data.bcc || [],
@@ -174,7 +187,34 @@ export class MailService {
     }
 
     const mail = this.mailRepository.create(mailData)
-    return await this.mailRepository.save(mail)
+    const savedMail = await this.mailRepository.save(mail)
+
+    // 如果通过 SMTP 实际发送
+    if (data.sendViaSmtp && !data.isDraft) {
+      const smtpResult = await this.mailSenderService.sendEmail({
+        from: actualFrom,
+        fromName: actualFromName,
+        to: data.to,
+        cc: data.cc,
+        bcc: data.bcc,
+        subject: data.subject,
+        content: data.content,
+        contentHtml: data.contentHtml,
+        inReplyTo: data.inReplyTo,
+      })
+
+      if (!smtpResult.success) {
+        // SMTP 发送失败，更新邮件状态
+        savedMail.status = 'failed'
+        await this.mailRepository.save(savedMail)
+        throw new BadRequestException(`SMTP 发送失败：${smtpResult.error}`)
+      }
+
+      // 发送成功通知
+      await this.notificationService.notifyMailSent(userId, savedMail.id, savedMail.subject)
+    }
+
+    return savedMail
   }
 
   /**
@@ -282,29 +322,76 @@ export class MailService {
   }
 
   /**
-   * 搜索邮件
+   * 搜索邮件（支持全文搜索 + 高级过滤）
    */
-  async search(userId: string, query: string, page: number = 1, limit: number = 20) {
-    const mails = await this.mailRepository.find({
-      where: [
-        { userId, subject: Like(`%${query}%`) },
-        { userId, content: Like(`%${query}%`) },
-        { userId, from: Like(`%${query}%`) },
-        { userId, to: Like(`%${query}%`) },
-      ],
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    })
+  async search(
+    userId: string,
+    query: string,
+    page: number = 1,
+    limit: number = 20,
+    filters?: {
+      folder?: MailFolder
+      isRead?: boolean
+      isStarred?: boolean
+      hasAttachments?: boolean
+      from?: string
+      to?: string
+      subject?: string
+      dateFrom?: string
+      dateTo?: string
+    }
+  ) {
+    const queryBuilder = this.mailRepository.createQueryBuilder('mail')
+      .where('mail.userId = :userId', { userId })
+      .andWhere('mail.isDeleted = :isDeleted', { isDeleted: false })
 
-    const total = await this.mailRepository.count({
-      where: [
-        { userId, subject: Like(`%${query}%`) },
-        { userId, content: Like(`%${query}%`) },
-        { userId, from: Like(`%${query}%`) },
-        { userId, to: Like(`%${query}%`) },
-      ],
-    })
+    // 全文搜索（多字段匹配）
+    if (query) {
+      queryBuilder.andWhere(
+        '(mail.subject LIKE :query OR mail.content LIKE :query OR mail.from LIKE :query OR mail.to LIKE :query)',
+        { query: `%${query}%` }
+      )
+    }
+
+    // 高级过滤
+    if (filters?.folder) {
+      queryBuilder.andWhere('mail.folder = :folder', { folder: filters.folder })
+    }
+    if (filters?.isRead !== undefined) {
+      queryBuilder.andWhere('mail.isRead = :isRead', { isRead: filters.isRead })
+    }
+    if (filters?.isStarred !== undefined) {
+      queryBuilder.andWhere('mail.isStarred = :isStarred', { isStarred: filters.isStarred })
+    }
+    if (filters?.hasAttachments !== undefined) {
+      if (filters.hasAttachments) {
+        queryBuilder.andWhere('mail.attachments IS NOT NULL AND LENGTH(mail.attachments) > 0')
+      } else {
+        queryBuilder.andWhere('(mail.attachments IS NULL OR LENGTH(mail.attachments) = 0)')
+      }
+    }
+    if (filters?.from) {
+      queryBuilder.andWhere('mail.from LIKE :from', { from: `%${filters.from}%` })
+    }
+    if (filters?.to) {
+      queryBuilder.andWhere('mail.to LIKE :to', { to: `%${filters.to}%` })
+    }
+    if (filters?.subject) {
+      queryBuilder.andWhere('mail.subject LIKE :subject', { subject: `%${filters.subject}%` })
+    }
+    if (filters?.dateFrom) {
+      queryBuilder.andWhere('mail.createdAt >= :dateFrom', { dateFrom: new Date(filters.dateFrom) })
+    }
+    if (filters?.dateTo) {
+      queryBuilder.andWhere('mail.createdAt <= :dateTo', { dateTo: new Date(filters.dateTo) })
+    }
+
+    queryBuilder
+      .orderBy('mail.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+
+    const [mails, total] = await queryBuilder.getManyAndCount()
 
     return {
       data: mails,
@@ -312,6 +399,7 @@ export class MailService {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+      hasMore: page * limit < total,
     }
   }
 
@@ -353,7 +441,7 @@ export class MailService {
 
     // 发送回复
     return this.sendMail(userId, {
-      from: originalMail.to[0], // 假设第一个收件人是当前用户
+      from: originalMail.to[0],
       fromName: 'User',
       to: [originalMail.from],
       subject: `Re: ${originalMail.subject}`,
@@ -418,6 +506,7 @@ export class MailService {
         ...emailData,
         to: ['user@example.com'],
         status: 'delivered',
+        isTest: true,
       });
       await this.mailRepository.save(mail);
       mailCount++;

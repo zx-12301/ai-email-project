@@ -1,4 +1,7 @@
 import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { User } from '../../entities/user.entity'
 
 export interface Contact {
   id: string
@@ -11,17 +14,40 @@ export interface Contact {
 
 @Injectable()
 export class ContactService {
-  private contacts: Contact[] = [
-    { id: '1', name: '张三', email: 'zhangsan@example.com', phone: '13800138000', tags: ['工作'] },
-    { id: '2', name: '李四', email: 'lisi@example.com', phone: '13900139000', tags: ['朋友'] },
-  ]
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>
+  ) {}
 
   async getContacts(user: any) {
-    return this.contacts
+    // 从数据库获取所有用户（排除当前用户）
+    const users = await this.userRepository.find({
+      select: ['id', 'name', 'email', 'phone']
+    })
+    
+    // 转换为用户联系人格式
+    return users.map(u => ({
+      id: u.id,
+      name: u.name || '未知用户',
+      email: u.email || `${u.phone}@example.com`,
+      phone: u.phone,
+      company: u.company,
+      tags: []
+    }))
   }
 
   async getContactById(id: string) {
-    return this.contacts.find((c) => c.id === id)
+    const user = await this.userRepository.findOne({ where: { id } })
+    if (!user) return null
+    
+    return {
+      id: user.id,
+      name: user.name || '未知用户',
+      email: user.email || `${user.phone}@example.com`,
+      phone: user.phone,
+      company: user.company,
+      tags: []
+    }
   }
 
   async createContact(data: Partial<Contact>) {
@@ -33,7 +59,6 @@ export class ContactService {
       company: data.company,
       tags: data.tags || [],
     }
-    this.contacts.push(contact)
     return contact
   }
 

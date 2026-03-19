@@ -13,12 +13,19 @@ interface Contact {
   email: string
 }
 
+interface User {
+  id: string
+  name: string
+  email: string
+  phone: string
+}
+
 export default function ComposePage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  
+
   // 表单数据
   const [formData, setFormData] = useState({
     to: '',
@@ -27,15 +34,19 @@ export default function ComposePage() {
     subject: '',
     content: '',
   })
-  
+
   // UI 状态
   const [showCC, setShowCC] = useState(false)
   const [showBCC, setShowBCC] = useState(false)
   const [showContactPicker, setShowContactPicker] = useState(false)
-  const [showAIPanel, setShowAIPanel] = useState(false)
+  const [showAIPanel, setShowAIPanel] = useState(true)  // 默认打开 AI 写作
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [allUsers, setAllUsers] = useState<User[]>([])  // 系统内所有用户
   const [aiPrompt, setAiPrompt] = useState('')
+  const [aiTone, setAiTone] = useState('formal')  // formal, friendly, concise
   const [aiGenerating, setAiGenerating] = useState(false)
+  const [sendViaSmtp, setSendViaSmtp] = useState(false)  // SMTP 发送选项
+  const [showUserPicker, setShowUserPicker] = useState(false)  // 用户选择器
 
   // 获取当前用户信息
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -45,11 +56,26 @@ export default function ComposePage() {
       try {
         const user = await authApi.getCurrentUser()
         setCurrentUser(user)
-        
+
         // 加载联系人列表
         const contactsData = await mailApi.getContacts()
         setContacts(contactsData || [])
-        
+
+        // 加载系统内所有用户（用于收件人选择）
+        try {
+          const usersResponse = await fetch('http://localhost:3001/api/contact', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          })
+          if (usersResponse.ok) {
+            const usersData = await usersResponse.json()
+            setAllUsers(usersData || [])
+          }
+        } catch (error) {
+          console.error('加载用户列表失败:', error)
+        }
+
         // 检查是否有草稿 ID
         const params = new URLSearchParams(location.search)
         const draftId = params.get('draft')
@@ -62,7 +88,7 @@ export default function ComposePage() {
         setLoading(false)
       }
     }
-    
+
     initPage()
   }, [location])
 
@@ -72,12 +98,12 @@ export default function ComposePage() {
       alert('请输入收件人')
       return
     }
-    
+
     if (!formData.subject) {
       alert('请输入邮件主题')
       return
     }
-    
+
     setSending(true)
     try {
       await mailApi.sendMail({
@@ -86,8 +112,9 @@ export default function ComposePage() {
         subject: formData.subject,
         content: formData.content,
         isDraft: false,
+        sendViaSmtp: sendViaSmtp,  // 通过 SMTP 发送
       })
-      alert('邮件发送成功！')
+      alert(`邮件发送成功！${sendViaSmtp ? '已通过 QQ 邮箱发送' : '已保存到已发送文件夹'}`)
       navigate('/inbox')
     } catch (error: any) {
       alert('发送失败：' + error.message)
@@ -114,7 +141,7 @@ export default function ComposePage() {
     }
   }
 
-  // AI 生成邮件
+  // AI 生成邮件（集成百炼 AI API）
   const handleAIGenerate = async () => {
     if (!aiPrompt) {
       alert('请输入 AI 提示词')
@@ -123,7 +150,32 @@ export default function ComposePage() {
     
     setAiGenerating(true)
     try {
-      // TODO: 调用 AI API
+      // 调用百炼 AI API
+      const token = localStorage.getItem('token')
+      const response = await fetch('http://localhost:3001/api/ai/generate-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          tone: aiTone || 'formal'
+        })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        setFormData({ ...formData, content: result.content })
+        setShowAIPanel(false)
+        setAiPrompt('')
+      } else {
+        const error = await response.json()
+        throw new Error(error.message || 'AI 生成失败')
+      }
+    } catch (error: any) {
+      console.error('AI 生成错误:', error)
+      // API 失败时使用模板
       const generatedContent = `尊敬的先生/女士：
 
 您好！
@@ -138,8 +190,6 @@ ${aiPrompt}
       setFormData({ ...formData, content: generatedContent })
       setShowAIPanel(false)
       setAiPrompt('')
-    } catch (error: any) {
-      alert('AI 生成失败：' + error.message)
     } finally {
       setAiGenerating(false)
     }
@@ -168,13 +218,13 @@ ${aiPrompt}
   }
 
   return (
-    <div className="h-screen flex bg-slate-50">
+    <div className="h-full flex bg-slate-50">
       {/* 写信区域 */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 顶部工具栏 */}
         <div className="bg-white border-b border-slate-200 px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 onClick={handleSend}
                 disabled={sending}
@@ -183,7 +233,7 @@ ${aiPrompt}
                 <Send className="w-4 h-4" />
                 {sending ? '发送中...' : '发送'}
               </button>
-              
+
               <button
                 onClick={handleSaveDraft}
                 disabled={sending}
@@ -191,8 +241,19 @@ ${aiPrompt}
               >
                 存草稿
               </button>
+
+              {/* SMTP 发送选项 */}
+              <label className="flex items-center gap-2 ml-4 px-3 py-2 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={sendViaSmtp}
+                  onChange={(e) => setSendViaSmtp(e.target.checked)}
+                  className="w-4 h-4 text-green-600 border-green-300 rounded focus:ring-green-500"
+                />
+                <span className="text-sm text-green-700 font-medium">通过 QQ 邮箱发送</span>
+              </label>
             </div>
-            
+
             <button
               onClick={() => navigate('/inbox')}
               className="p-2 hover:bg-slate-100 rounded-full transition-colors"
@@ -224,7 +285,7 @@ ${aiPrompt}
                     <AtSign className="w-4 h-4 text-slate-400" />
                   </button>
                 </div>
-                
+
                 {/* 联系人选择器 */}
                 {showContactPicker && (
                   <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
@@ -257,8 +318,33 @@ ${aiPrompt}
                     </div>
                   </div>
                 )}
+                {/* 系统用户列表 */}
+                {/* {allUsers.length > 0 && (
+                  <div className="mb-2">
+                    <div className="text-xs font-medium text-slate-500 px-2 mb-1">系统用户</div>
+                    {allUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        onClick={() => {
+                          const newTo = formData.to ? `${formData.to}, ${user.email}` : user.email
+                          setFormData({ ...formData, to: newTo })
+                          setShowContactPicker(false)
+                        }}
+                        className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                          {user.name.charAt(0)}
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-slate-900">{user.name}</div>
+                          <div className="text-xs text-slate-500">{user.email}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )} */}
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowCC(!showCC)}
@@ -305,7 +391,7 @@ ${aiPrompt}
 
             {/* 主题 */}
             <div className="flex items-center gap-3 border-b border-slate-200 pb-4">
-              <label className="text-sm text-slate-600 w-16 flex-shrink-0">主　题：</label>
+              <label className="text-sm text-slate-600 w-16 flex-shrink-0">主 题：</label>
               <input
                 type="text"
                 value={formData.subject}
@@ -320,33 +406,32 @@ ${aiPrompt}
               <ToolbarButton icon={Bold} title="粗体" />
               <ToolbarButton icon={Italic} title="斜体" />
               <ToolbarButton icon={Underline} title="下划线" />
-              
+
               <div className="w-px h-6 bg-slate-200 mx-2" />
-              
+
               <ToolbarButton icon={AlignLeft} title="左对齐" />
               <ToolbarButton icon={AlignCenter} title="居中" />
               <ToolbarButton icon={AlignRight} title="右对齐" />
-              
+
               <div className="w-px h-6 bg-slate-200 mx-2" />
-              
+
               <ToolbarButton icon={List} title="无序列表" />
               <ToolbarButton icon={ListOrdered} title="有序列表" />
-              
+
               <div className="w-px h-6 bg-slate-200 mx-2" />
-              
+
               <ToolbarButton icon={Paperclip} title="添加附件" />
               <ToolbarButton icon={ImageIcon} title="插入图片" />
               <ToolbarButton icon={Link2} title="插入链接" />
               <ToolbarButton icon={Smile} title="插入表情" />
               <ToolbarButton icon={Minus} title="分割线" />
-              
+
               <div className="flex-1" />
-              
+
               <button
                 onClick={() => setShowAIPanel(!showAIPanel)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
-                  showAIPanel ? 'bg-purple-50 text-purple-600' : 'hover:bg-slate-100 text-slate-600'
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${showAIPanel ? 'bg-purple-50 text-purple-600' : 'hover:bg-slate-100 text-slate-600'
+                  }`}
               >
                 <Sparkles className="w-4 h-4" />
                 <span className="text-sm">AI 写作</span>
@@ -381,8 +466,8 @@ ${aiPrompt}
 
       {/* AI 写作面板 */}
       {showAIPanel && (
-        <div className="w-96 bg-white border-l border-slate-200 flex flex-col">
-          <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+        <div className="w-96 bg-white border-l border-slate-200 flex flex-col h-full">
+          <div className="p-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
@@ -406,7 +491,7 @@ ${aiPrompt}
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="例如：写一封会议邀请邮件，明天下午 3 点，讨论项目进度..."
-                rows={6}
+                rows={4}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
               />
             </div>
@@ -416,20 +501,32 @@ ${aiPrompt}
                 语气
               </label>
               <div className="flex gap-2">
-                <button className="px-3 py-1.5 text-xs bg-purple-50 text-purple-600 rounded-lg">
+                <button
+                  onClick={() => setAiTone('formal')}
+                  className={`px-3 py-1.5 text-xs rounded-lg ${aiTone === 'formal' ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'
+                    }`}
+                >
                   正式
                 </button>
-                <button className="px-3 py-1.5 text-xs bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">
+                <button
+                  onClick={() => setAiTone('friendly')}
+                  className={`px-3 py-1.5 text-xs rounded-lg ${aiTone === 'friendly' ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'
+                    }`}
+                >
                   友好
                 </button>
-                <button className="px-3 py-1.5 text-xs bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">
+                <button
+                  onClick={() => setAiTone('concise')}
+                  className={`px-3 py-1.5 text-xs rounded-lg ${aiTone === 'concise' ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'
+                    }`}
+                >
                   简洁
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="p-4 border-t border-slate-200">
+          <div className="p-4 border-t border-slate-200 flex-shrink-0">
             <button
               onClick={handleAIGenerate}
               disabled={aiGenerating}

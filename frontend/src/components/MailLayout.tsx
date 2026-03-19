@@ -29,6 +29,8 @@ import {
 import AIAssistantPanel from './AIAssistantPanel'
 import SearchBar from './SearchBar'
 import NotificationPanel from './NotificationPanel'
+import NotificationToast from './NotificationToast'
+import { NotificationService } from '../services/NotificationService'
 import { authApi } from '../api'
 
 export default function MailLayout() {
@@ -97,6 +99,32 @@ export default function MailLayout() {
   useEffect(() => {
     if (!loading && currentUser) {
       // 用户信息已在 checkAuth 中获取
+    }
+  }, [loading, currentUser])
+
+  // 连接 WebSocket 通知
+  useEffect(() => {
+    if (!loading && currentUser) {
+      const token = localStorage.getItem('token')
+      if (token && currentUser?.id) {
+        console.log('🔌 正在连接 WebSocket 通知...')
+        NotificationService.connect(currentUser.id, token)
+          .then((success) => {
+            if (success) {
+              console.log('✅ WebSocket 通知已连接')
+            } else {
+              console.warn('⚠️ WebSocket 通知连接失败，将使用轮询模式')
+            }
+          })
+          .catch((error) => {
+            console.error('❌ WebSocket 通知连接错误:', error)
+          })
+      }
+    }
+
+    // 清理：组件卸载时断开连接
+    return () => {
+      NotificationService.disconnect()
     }
   }, [loading, currentUser])
   
@@ -624,6 +652,9 @@ export default function MailLayout() {
       {showAIAssistant && (
         <AIAssistantPanel onClose={() => setShowAIAssistant(false)} />
       )}
+
+      {/* 通知 Toast */}
+      <NotificationToast />
     </div>
   )
 }
