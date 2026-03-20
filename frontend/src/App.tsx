@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ToastProvider } from './contexts/ToastContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -28,9 +29,10 @@ import MailLayout from './components/MailLayout'
 
 function App() {
   return (
-    <ToastProvider>
-      <BrowserRouter>
-        <Routes>
+    <ThemeProvider>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
           {/* 认证页面 */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -64,6 +66,7 @@ function App() {
         </Routes>
       </BrowserRouter>
     </ToastProvider>
+    </ThemeProvider>
   )
 }
 

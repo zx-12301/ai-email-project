@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, Like, ILike, Between, Raw, In } from 'typeorm'
-import { Mail } from '../../entities/mail.entity'
+import { Mail, MailStatus, MailFolder } from '../../entities/mail.entity'
 import { User } from '../../entities/user.entity'
 import { AiService } from '../ai/ai.service'
 import { MailSenderService } from './mail-sender.service'
 import { NotificationService } from '../notification/notification.service'
 
-export type MailFolder = 'inbox' | 'sent' | 'drafts' | 'trash' | 'spam'
+export { MailFolder }
 
 @Injectable()
 export class MailService {
@@ -208,7 +208,7 @@ export class MailService {
 
     const mailData: Partial<Mail> = {
       userId,
-      folder: data.isDraft ? 'drafts' : 'sent',
+      folder: data.isDraft ? ('drafts' as MailFolder) : ('sent' as MailFolder),
       from: actualFrom,
       fromName: actualFromName,
       to: data.to,
@@ -221,7 +221,7 @@ export class MailService {
       inReplyTo: data.inReplyTo,
       isRead: true,
       sentAt: data.isDraft ? null : new Date(),
-      status: data.isDraft ? 'draft' : 'sent',
+      status: data.isDraft ? ('draft' as MailStatus) : ('sent' as MailStatus),
     }
 
     const mail = this.mailRepository.create(mailData)
@@ -260,7 +260,7 @@ export class MailService {
           console.log('  ✅ 找到系统用户:', recipientUser.id, recipientUser.email, recipientUser.phone)
           const recipientMailData: Partial<Mail> = {
             userId: recipientUser.id,
-            folder: 'inbox',
+            folder: 'inbox' as MailFolder,
             from: actualFrom,
             fromName: actualFromName,
             to: [toEmail],
@@ -273,7 +273,7 @@ export class MailService {
             isRead: false,
             isStarred: false,
             sentAt: new Date(),
-            status: 'delivered',
+            status: 'delivered' as MailStatus,
           }
 
           const recipientMail = this.mailRepository.create(recipientMailData)
@@ -624,13 +624,14 @@ export class MailService {
 
     let mailCount = 0;
     for (const emailData of testEmails) {
+      const { folder: _, status: __, ...restData } = emailData as any;
       const mail = this.mailRepository.create({
         userId,
-        folder: 'inbox',
+        folder: 'inbox' as MailFolder,
         to: ['user@example.com'],
-        status: 'delivered',
+        status: 'delivered' as MailStatus,
         isTest: true,
-        ...emailData,
+        ...restData,
       });
       await this.mailRepository.save(mail);
       mailCount++;
@@ -665,9 +666,9 @@ export class MailService {
     for (const draftData of testDrafts) {
       const draft = this.mailRepository.create({
         userId,
-        folder: 'drafts',
+        folder: 'drafts' as MailFolder,
         ...draftData,
-        status: 'draft',
+        status: 'draft' as MailStatus,
       });
       await this.mailRepository.save(draft);
       draftCount++;

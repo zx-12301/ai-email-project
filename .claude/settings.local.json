@@ -24,7 +24,31 @@
       "Bash(ls -la /c/Users/17816/AppData/Local/Temp/claude/C--Users-17816-Desktop-ai-email-project/9d0101ae-e2a0-4abd-a503-287355317895/tasks/*.output)",
       "Bash(curl -s \"http://localhost:3001/api/mail/spam?page=1&limit=20\")",
       "Bash(curl -s \"http://localhost:3001/api/mail/spam?page=1&limit=20\" -H \"Authorization: Bearer test\")",
-      "Bash(curl -s \"http://localhost:3001/api/mail/trash?page=1&limit=20\")"
+      "Bash(curl -s \"http://localhost:3001/api/mail/trash?page=1&limit=20\")",
+      "Read(//c/Users/17816/Desktop/ai-email-project/$HOME/.claude/**)",
+      "Read(//c/Users/17816/Desktop/ai-email-project/$HOME/.config/Claude/**)",
+      "Bash(python3 src/ui-ux-pro-max/scripts/search.py \"email login enterprise professional\" --design-system -p \"AI Email Login\")",
+      "Bash(py:*)",
+      "Bash(lsof -ti:3001)",
+      "Bash(xargs kill:*)",
+      "Bash(powershell 'Stop-Process -Id 18520 -Force')",
+      "Bash(findstr :3000)",
+      "Bash(powershell 'Stop-Process -Id 14628 -Force')",
+      "Bash(powershell 'Stop-Process -Id 25592 -Force')",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(Get-Process -Id 26376)",
+      "Bash(Stop-Process -Force)",
+      "Bash(kill:*)",
+      "Bash(findstr LISTENING)",
+      "Bash(findstr :300)",
+      "Bash(findstr :3000.*LISTENING)",
+      "Bash(findstr :3001.*LISTENING)",
+      "Bash(git restore:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s http://localhost:3000/src/pages/LoginPage.tsx)"
     ]
   }
 }
